@@ -46,8 +46,8 @@ first.
      (the number in the installation's URL), and download a private key `.pem`.
    - Protect `main`: require pull requests and passing checks, and add the App to the bypass list. The admin UI
      commits low-risk changes through the App.
-   - Add org secrets `PLATFORM_APP_ID` and `PLATFORM_APP_PRIVATE_KEY`, available to the platform repo and the app
-     repos.
+   - Add repo secrets `PLATFORM_APP_ID` and `PLATFORM_APP_PRIVATE_KEY` to the platform repo only. App repos hold
+     no platform secrets: their builds push images, and the worker picks up new dev images on its own.
 9. **Fill in `platform.yaml`:** every `REPLACE` value (tenant id, the three subscription ids, GitHub org, static IP,
    alert email and phone, digest time zone, `pg-admins` object id, both domains). Keep `region: eastus2` unless you
    chose otherwise.
@@ -124,7 +124,7 @@ mirrors, 365 days for pre-promotion dumps. Nobody can delete those backups early
    `entra_app_id` in the app file. Send the printed consent link to the client's Microsoft 365 admin.
 3. Commit through a PR and approve it in the admin UI. Then run `bootstrap/80-onboard-client.sh <client>`
    (client network, Postgres servers, Key Vaults, db-ops jobs) and `bootstrap/90-graduate-app.sh <client> <app>`
-   (secrets, app environments, database roles).
+   (secrets, app environments; each deployment also creates the app's database and grants its identity).
 4. Update the app's code to the template pattern (see `templates/app/README.md`): Entra sign-in, managed identity
    Postgres, health endpoints, audit log, and the reusable build workflow. Push it. CI builds the images and
    deploys dev automatically.
@@ -162,7 +162,8 @@ sandbox.
                                           │          └── state DB (Postgres)   └── apply.yml ──> Azure (Bicep)
  worker jobs (Container Apps Jobs) ───────┘
    pull from Azure Monitor, Sentinel, Defender, Dependabot, Trivy results, backup results
-   start db-ops jobs (inside each private Postgres network) for dumps, restore tests, grants, cleanup
+   start db-ops jobs (inside each private Postgres network) for dumps and restore tests
+ deploy.py (apply.yml) starts db-ops grants after each app deployment
  Client staff (their own Entra ID) ──> client app frontend ──> backend (internal) ──> private Postgres
  Mac Mini (off-cloud) ──> checks prod health and the worker heartbeat; copies backups to a local drive nightly
 ```
@@ -231,13 +232,19 @@ Every Postgres server is private: inside its VNet, Entra authentication only, no
      `client_data`, client files, policy files, creating or deleting files, and anything proposed by Claude.
 4. Gus approves in the UI. That needs step-up: a fresh MFA sign-in, with an ID token no older than 10 minutes. The
    API then merges the PR.
-5. A merge to `main` triggers `apply.yml`. It renders parameters, deploys only what changed (in dependency order)
-   and writes a summary to the run.
+5. A merge to `main` triggers `apply.yml`. It renders parameters, deploys everything that changed since the last
+   successful apply (the `applied/main` tag, moved only when a full apply succeeds), in dependency order, and
+   writes a summary to the run. A failed run is therefore retried in full by the next one.
+6. After each app deployment, `deploy.py` runs the db-ops `grant` command: it creates the database if missing and
+   gives the app's identity its role. It is idempotent, so new environments and graduated apps get access with no
+   manual step. A backend that started before its role existed is restarted.
 
 ### A release
 
 1. Merging to an app repo's `main` runs `reusable-app-build.yml`: lint, tests, image build, Trivy gate, push to
-   ACR. It then commits the new dev digests into the app file as a low-risk bot commit. `apply.yml` deploys dev.
+   ACR as `<client>/<app>-frontend|backend` with the commit sha and `:dev` tags. App repos hold no platform
+   credentials. Within two minutes the worker's `ops` job sees the new `:dev` digests and commits them into the
+   app file as a low-risk CI change. `apply.yml` deploys dev.
 2. **Promote dev to cert** (UI button or Claude's `request_promotion`): a change that copies the digests. It needs
    approval.
 3. **Promote cert to prod:** same, with approval. `deploy.py` takes a pre-promotion dump through the db-ops job.
@@ -270,12 +277,14 @@ Never fix drift by clicking in the portal.
 | --- | --- | --- |
 | Gus (daily account) | Admin UI | `Admin` app role on platform-api: everything, approvals need step-up |
 | Gus (cloud-only admin) | Bootstrap only | Owner on `mg-blufire`, Application Administrator |
-| `id-platform-prod` | platform-api, MCP server, worker jobs | Reader on `mg-blufire`, Log Analytics Reader, start db-ops jobs, restart app revisions, Key Vault secrets (rotation), read backup results, the `Agent` role on platform-api (MCP), send email |
+| `id-platform-prod` | platform-api, worker jobs | Reader on `mg-blufire`, Log Analytics Reader, start db-ops jobs, restart app revisions, Key Vault secrets (rotation), read backup results, send email |
+| `id-platform-ui` | Admin UI | AcrPull, read its two secrets (`ui-auth-secret`, `ui-entra-client-secret`). Calls platform-api with Gus's delegated token |
+| `id-platform-mcp` | MCP server | AcrPull and the `Agent` app role on platform-api. No Azure or Key Vault access |
 | `id-platform-dbops`, `id-<c>-dbops`, `id-sandbox-dbops` | db-ops jobs | Entra admin on their own Postgres servers, write dumps and results to backup storage |
-| `id-<c>-<a>-<e>` | One app in one environment | Pull its images, read its own Key Vault secrets, connect to its own database |
+| `id-<c>-<a>-<e>` | One app in one environment | Pull its images, read only the Key Vault secrets it lists (per-secret roles), connect to its own database |
 | `gh-blufire-deploy` | `apply.yml` and image builds on platform `main` | Contributor and RBAC Administrator on `mg-blufire` |
 | `gh-blufire-whatif` | PR checks | Custom what-if role plus Reader |
-| `gh-blufire-builds` | App repo `main` builds | AcrPush on the platform registry only |
+| `gh-blufire-builds` | App repo `main` builds | AcrPush on the platform registry only. No GitHub or registry write access |
 | `blufire-mac-mini` | Mac Mini | Read dumps and mirrors, write `dbops-results` receipts |
 | GitHub App `blufire-platform` | platform-api, worker, CI | Commit, open and merge PRs, dispatch workflows, read Dependabot alerts |
 
@@ -311,7 +320,7 @@ cd control-plane/ui && npm ci && UI_MOCK=1 npm run dev
 
 ```bash
 pytest -q control-plane/tests tools/tests
-ruff check control-plane/src control-plane/tests control-plane/dbops tools heartbeat templates/app/backend
+ruff check control-plane/src control-plane/tests control-plane/dbops tools heartbeat templates/app/backend infra/scripts
 python3 tools/render_params.py --out build/params
 for f in infra/modules/*.bicep infra/stacks/*.bicep; do bicep build "$f" --stdout >/dev/null || echo "FAIL $f"; done
 for f in bootstrap/*.sh tools/migrate/*.sh heartbeat/*.sh; do bash -n "$f"; done
@@ -343,6 +352,13 @@ names, ordering. That is normal for infrastructure that has only been compiled.
 - The Posture tab has no Defender Secure Score yet. It shows Defender recommendations as findings instead.
 - Digest recipients and timing are edited in `alerts/defaults.yaml` and `platform.yaml`, not in the UI.
 - Secret rotation generates a new random value. Use it only for secrets BluFire owns, not third-party API keys.
+- A secret listed in an app file must exist in the vault before that change deploys (each app identity gets a role
+  on each listed secret). Create the secret first, then add its name.
+- `gh-blufire-builds` can push to any repository in the platform registry, not only its own app's. Registry
+  scope maps would narrow it, but they need ACR Premium. The impact is limited: only `:dev` tags are picked up
+  automatically, and cert and prod need Gus's approval of a specific digest.
+- Sandbox databases are removed by `bootstrap/90-graduate-app.sh`, not by the worker, so nothing deletes data on
+  a schedule.
 
 **Decisions made during the build that refine the blueprint:**
 - Promotions are registry changes, so every environment's images are visible and versioned in git.

@@ -1,5 +1,6 @@
 # Reusable build for client app repos (frontend/ + backend/). On pull requests: lint, test, build, scan.
-# On main: also push both images and commit the dev image bump into the platform registry (low risk, direct).
+# On main: also push both images to ACR, tagged with the commit and with :dev. App repos hold no platform
+# credentials: the platform worker sees the new :dev digests and commits the dev deploy itself (low risk).
 #
 # Caller (.github/workflows/build.yml in the app repo):
 #   on: { push: { branches: [main] }, pull_request: {} }
@@ -15,7 +16,6 @@
 #         azure_client_id: ${{ vars.AZURE_BUILDS_CLIENT_ID }}
 #         azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
 #         azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-#       secrets: inherit
 name: reusable-app-build
 
 on:
@@ -30,9 +30,6 @@ on:
       azure_subscription_id: { type: string, required: true }
       python_version: { type: string, default: "3.12" }
       node_version: { type: string, default: "22" }
-    secrets:
-      PLATFORM_APP_ID: { required: true }
-      PLATFORM_APP_PRIVATE_KEY: { required: true }
 
 permissions:
   contents: read
@@ -86,36 +83,11 @@ jobs:
         id: push
         run: |
           az acr login --name "${{ inputs.acr_name }}"
-          docker push "$FE:${GITHUB_SHA::7}" >/dev/null
-          docker push "$BE:${GITHUB_SHA::7}" >/dev/null
+          # The :dev tag is what the platform worker watches; it deploys the new digests to dev within minutes.
+          for ref in "$FE" "$BE"; do
+            docker tag "$ref:${GITHUB_SHA::7}" "$ref:dev"
+            docker push "$ref:${GITHUB_SHA::7}" >/dev/null
+            docker push "$ref:dev" >/dev/null
+          done
           echo "frontend=$(docker inspect --format '{{index .RepoDigests 0}}' "$FE:${GITHUB_SHA::7}")" >> "$GITHUB_OUTPUT"
           echo "backend=$(docker inspect --format '{{index .RepoDigests 0}}' "$BE:${GITHUB_SHA::7}")" >> "$GITHUB_OUTPUT"
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/create-github-app-token@v1
-        id: token
-        with:
-          app-id: ${{ secrets.PLATFORM_APP_ID }}
-          private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.platform_repo }}
-          token: ${{ steps.token.outputs.token }}
-          path: platform
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        name: Commit dev image bump to the platform registry
-        working-directory: platform
-        env:
-          FRONTEND: ${{ steps.push.outputs.frontend }}
-          BACKEND: ${{ steps.push.outputs.backend }}
-          FILE: registry/apps/${{ inputs.client }}/${{ inputs.app }}.yaml
-          SOURCE: ${{ github.repository }}
-        run: |
-          export RELEASE="${GITHUB_SHA::7}"
-          yq -i '.environments.dev.images.frontend = strenv(FRONTEND) | .environments.dev.images.backend = strenv(BACKEND) | .environments.dev.release = strenv(RELEASE)' "$FILE"
-          git config user.name "blufire-builds"
-          git config user.email "builds@users.noreply.github.com"
-          git add "$FILE"
-          git commit -m "deploy(dev): ${{ inputs.client }}/${{ inputs.app }} $RELEASE" -m "Built from $SOURCE@$GITHUB_SHA"
-          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done

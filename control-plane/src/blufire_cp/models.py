@@ -36,6 +36,8 @@ class Change(Base):
     status: Mapped[str] = mapped_column(String(10))  # applied | pending | rejected | failed
     diff: Mapped[str] = mapped_column(Text)
     branch: Mapped[str | None] = mapped_column(String(100))
+    files: Mapped[list] = mapped_column(default=list)  # files the PR may touch
+    head_sha: Mapped[str | None] = mapped_column(String(64))  # the commit Gus reviews; merge refuses anything else
     commit_sha: Mapped[str | None] = mapped_column(String(64))
     pr_number: Mapped[int | None] = mapped_column(Integer)
     pr_url: Mapped[str | None] = mapped_column(String(300))

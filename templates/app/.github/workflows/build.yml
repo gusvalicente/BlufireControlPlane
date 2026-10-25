@@ -1,6 +1,6 @@
 # Copied from blufire-platform/templates/app. Replace the two REPLACE values; everything else comes from repo variables
-# set by bootstrap/40-github-oidc.sh (ACR_NAME, AZURE_BUILDS_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID) and the
-# org secrets PLATFORM_APP_ID / PLATFORM_APP_PRIVATE_KEY (the BluFire GitHub App).
+# set by bootstrap/40-github-oidc.sh (ACR_NAME, AZURE_BUILDS_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID).
+# App repos hold no platform secrets: they only push images.
 name: build
 on:
   push: { branches: [main] }
@@ -17,4 +17,3 @@ jobs:
       azure_client_id: ${{ vars.AZURE_BUILDS_CLIENT_ID }}
       azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
       azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-    secrets: inherit

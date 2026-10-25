@@ -98,8 +98,15 @@ def schema_errors(doc: Any, schema: dict) -> list[str]:
     return errors
 
 
+RESERVED_ENV = {
+    "APP_ID", "APP_ENV", "AZURE_CLIENT_ID", "APPLICATIONINSIGHTS_CONNECTION_STRING", "ENTRA_CLIENT_ID",
+    "ALLOWED_TENANTS", "BACKEND_URL", "AUTH_SECRET", "ENTRA_CLIENT_SECRET", "PGHOST", "PGDATABASE", "PGUSER",
+    "PGPASSWORD", "PGPORT", "PGSSLMODE", "PORT", "HOSTNAME", "NODE_ENV",
+}
+
+
 def app_rule_errors(app: dict, clients: dict[str, dict]) -> list[str]:
-    """Cross-document rules the JSON Schema cannot express."""
+    """Cross-document rules the JSON Schema cannot express. Keep in step with tools/render_params.py."""
     errors = []
     client = clients.get(app.get("client", ""))
     if client is None:
@@ -113,6 +120,12 @@ def app_rule_errors(app: dict, clients: dict[str, dict]) -> list[str]:
         scale = cfg.get("scale") or {}
         if scale and scale.get("min", 0) > scale.get("max", 0):
             errors.append(f"environments.{env}.scale: min is greater than max")
+        images = cfg.get("images") or {}
+        if (images.get("frontend") is None) != (images.get("backend") is None):
+            errors.append(f"environments.{env}.images: set both frontend and backend, or neither")
+        reserved = sorted(RESERVED_ENV & set(cfg.get("env_vars") or {}))
+        if reserved:
+            errors.append(f"environments.{env}.env_vars: {', '.join(reserved)} are set by the platform")
     return errors
 
 

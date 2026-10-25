@@ -47,21 +47,25 @@ def _validate(ctx: Context, path: str, doc: dict) -> None:
     if not kind:
         return
     errors = schema_errors(doc, ctx.schema(kind))
+    if kind == "client" and not errors and path != f"registry/clients/{doc['id']}.yaml":
+        errors.append(f"id: file must be registry/clients/{doc['id']}.yaml")
     if kind == "app" and not errors:
         snap = ctx.snapshot()
         errors = app_rule_errors(doc, snap.clients)
         clash = snap.app_files.get(doc.get("id"))
         if clash and clash != path:
             errors.append(f"id: app id '{doc['id']}' is already used by {clash}")
-        if not path.startswith(f"registry/apps/{doc.get('client')}/"):
-            errors.append("client: file must live under registry/apps/<client>/")
+        if path != f"registry/apps/{doc.get('client')}/{doc.get('id')}.yaml":
+            errors.append(f"id: file must be registry/apps/{doc.get('client')}/{doc.get('id')}.yaml")
     if errors:
         raise ChangeError(422, "invalid_registry", "; ".join(errors))
 
 
 def propose(ctx: Context, req: ChangeIn, actor: Principal) -> Change:
-    if not req.file.startswith(ALLOWED_PREFIXES) or ".." in req.file:
+    if not req.file.startswith(ALLOWED_PREFIXES) or ".." in req.file or not req.file.endswith(".yaml"):
         raise ChangeError(400, "bad_file", f"{req.file} is not an editable registry file")
+    if actor.kind == "agent" and (req.create or req.delete):
+        raise ChangeError(403, "forbidden", "the Agent role cannot create or delete registry files")
 
     if req.create:
         try:
@@ -83,6 +87,8 @@ def propose(ctx: Context, req: ChangeIn, actor: Principal) -> Change:
     new_text = None if new_doc is None else dump_yaml(new_doc)
     new_plain = {} if new_doc is None else to_plain(new_doc)
     if new_doc is not None:
+        if not isinstance(new_plain, dict):
+            raise ChangeError(422, "invalid_registry", "the file must be a YAML mapping")
         _validate(ctx, req.file, new_plain)
     if new_text == old_text:
         raise ChangeError(400, "no_change", "the patch does not change the file")
@@ -123,7 +129,8 @@ def propose(ctx: Context, req: ChangeIn, actor: Principal) -> Change:
         else:
             change.branch = f"change/{change.id}"
             ctx.store.create_branch(change.branch)
-            ctx.store.commit_file(req.file, new_text, message, sha=sha, branch=change.branch)
+            change.files = [req.file]
+            change.head_sha = ctx.store.commit_file(req.file, new_text, message, sha=sha, branch=change.branch)
             rules = "\n".join(f"- `{r}`" for r in result.matched_rules)
             pr = ctx.store.open_pr(change.branch, req.title, f"{req.reason or ''}\n\nNeeds approval because:\n{rules}")
             change.pr_number, change.pr_url = pr.number, pr.url
@@ -154,7 +161,11 @@ def _decide(ctx: Context, change_id: str) -> Change:
 def approve(ctx: Context, change_id: str, admin: Principal) -> Change:
     change = _decide(ctx, change_id)
     try:
-        change.commit_sha = ctx.store.merge_pr(change.pr_number, change.title)
+        # Merge exactly what Gus reviewed: the recorded head commit, touching only the recorded files.
+        touched = set(ctx.store.pr_files(change.pr_number))
+        if not touched <= set(change.files or [change.file]):
+            raise ConflictError(f"PR {change.pr_number} now touches other files: {sorted(touched - set(change.files))}")
+        change.commit_sha = ctx.store.merge_pr(change.pr_number, change.title, change.head_sha)
         change.status = "applied"
     except ConflictError as exc:
         change.status, change.decision_note = "failed", str(exc)
@@ -247,10 +258,11 @@ def propose_graduation(ctx: Context, app_id: str, subscription_id: str, actor: P
         diff="".join(_unified(p, old, new) for p, old, _, new in edits),
     )
     change.branch = f"change/{change.id}"
+    change.files = [p for p, _, _, _ in edits]
     try:
         ctx.store.create_branch(change.branch)
         for path, _, sha, new in edits:
-            ctx.store.commit_file(
+            change.head_sha = ctx.store.commit_file(
                 path, new, f"{title}\n\nRequested-by: {actor.name} ({actor.kind})", sha=sha, branch=change.branch
             )
         pr = ctx.store.open_pr(change.branch, title, change.reason)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 90: Finishes a graduation after the graduation PR (stage: graduated, client subscription_id set) is merged:
-#   1. client stack (80), 2. app secrets in kv-<c>-prod and kv-<c>-nonprod, 3. app environments,
-#   4. database roles for each app identity (db-ops grant), 5. removes the app's sandbox databases and resource group.
+#   1. client stack (80), 2. app secrets in kv-<c>-prod and kv-<c>-nonprod, 3. app environments (deploy.py also
+#   creates each database and grants the app identity), 4. removes the app's sandbox databases and resource group.
 #
 #   bootstrap/90-graduate-app.sh <client> <app> [--keep-sandbox]
 source "$(dirname "$0")/lib.sh"
@@ -22,19 +22,7 @@ print(r.client_names(sys.argv[1], sys.argv[2])["keyVault"][sys.argv[3]])' "$clie
   bootstrap/lib-app-secrets.sh "$vault" "$app" "$entra" "$sub"
 done
 
-deploy --only "app:$client/$app"
-
-log "Database roles"
-for env in dev cert prod; do
-  params="build/params/app-$client-$app-$env.json"
-  [[ -f "$params" ]] || { echo "  $env not deployed yet (no images); grant later"; continue; }
-  tier=$([[ "$env" == prod ]] && echo prod || echo nonprod)
-  db="$(jq -r .parameters.databaseName.value "$params")"
-  principal="$(jq -r .parameters.identityName.value "$params")"
-  job="caj-$client-dbops-$tier"
-  exec_name="$(start_dbops "$sub" "rg-$client-shared" "$job" grant --database "$db" --principal "$principal")"
-  echo "  $env: grant started ($exec_name); check: az containerapp job execution show -n $job -g rg-$client-shared --job-execution-name $exec_name"
-done
+deploy --only "app:$client/$app"   # also runs the db-ops grant per deployed env
 
 if [[ "$keep" != "--keep-sandbox" ]]; then
   log "Sandbox cleanup"

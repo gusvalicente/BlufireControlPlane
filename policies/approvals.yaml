@@ -13,10 +13,13 @@ approval_required:
   # Dotted paths inside registry/apps/**/*.yaml. A rule matches a changed path when the rule is a
   # segment-wise prefix of it; "*" matches exactly one segment.
   app_paths:
+    - id
+    - client
     - repo
     - stage
     - client_data
     - auth
+    - backup.pitr_retention_days
     - environments.prod
     - environments.cert.images
     - environments.*.origins

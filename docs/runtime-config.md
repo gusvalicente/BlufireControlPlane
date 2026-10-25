@@ -19,7 +19,7 @@ these jobs through Azure Resource Manager and reads their result files from back
 
 | Variable | Used by | Value |
 | --- | --- | --- |
-| `AZURE_CLIENT_ID` | all | Client ID of the user-assigned managed identity `id-platform-prod` |
+| `AZURE_CLIENT_ID` | all | api and worker: client ID of `id-platform-prod`. mcp: client ID of `id-platform-mcp`, which holds only the Agent app role on platform-api |
 | `ENTRA_TENANT_ID` | all | BluFire tenant ID |
 | `API_AUDIENCE` | api | Application ID URI of the platform-api app registration, e.g. `api://blufire-platform-api` |
 | `UI_CLIENT_ID` | api | Client ID of the admin UI app registration (audience of the step-up ID token) |
@@ -52,6 +52,8 @@ these jobs through Azure Resource Manager and reads their result files from back
 | `PLATFORM_API_URL` | Internal URL of platform-api |
 | `PLATFORM_API_SCOPE` | `<API_AUDIENCE>/.default` delegated scope (`<API_AUDIENCE>/access_as_user`) |
 | `UI_MOCK` | `1` to serve fixture data without an API (local preview) |
+
+The UI runs as `id-platform-ui`: AcrPull plus read access to exactly `ui-auth-secret` and `ui-entra-client-secret`.
 
 ## blufire-dbops
 
@@ -108,3 +110,8 @@ Digest email goes out through Azure Communication Services Email (Azure-managed 
 | `PGHOST`, `PGDATABASE`, `PGUSER` | | yes | Server FQDN, database name from the Naming table, `PGUSER` = `id-<c>-<a>-<e>` |
 | `env_vars` from the registry | yes | yes | Non-secret values, both containers |
 | `secrets` from the registry | yes | yes | Key Vault references, exposed with the secret name upper-cased and hyphens as underscores |
+
+Each app identity gets Key Vault Secrets User on its own secrets only (one role assignment per secret: the
+registry `secrets` list plus `<app>-auth-secret` and `<app>-entra-client-secret`). A secret listed in the registry
+must already exist in the vault before the deployment, or the role assignment fails. Create it with
+`az keyvault secret set` first, then add its name to the app file.

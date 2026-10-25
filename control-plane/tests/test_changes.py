@@ -82,3 +82,39 @@ def test_drift_patch_mapping():
     assert ch.drift_patch("ca-x-y-fe-dev", "image", "dev", "acr/x@sha256:" + "a" * 64)["environments"]["dev"][
         "images"
     ] == {"frontend": "acr/x@sha256:" + "a" * 64}
+
+
+def test_approve_refuses_if_branch_moved(ctx):
+    c = ch.propose(ctx, ch.ChangeIn("Prod scale", APP, {"environments": {"prod": {"scale": {"max": 4}}}}), DEV_ADMIN)
+    text, sha = ctx.store.read_file("policies/approvals.yaml", ref=c.branch)
+    ctx.store.commit_file("policies/approvals.yaml", "approval_required: {}\n", "sneak", sha=sha, branch=c.branch)
+    with pytest.raises(ch.ChangeError) as e:
+        ch.approve(ctx, c.id, DEV_ADMIN)
+    assert e.value.status == 409
+    assert "approval_required" in ctx.store.read_file("policies/approvals.yaml")[0]
+    assert ctx.store.read_file("policies/approvals.yaml")[0] != "approval_required: {}\n"
+
+
+def test_agent_cannot_create_or_delete(ctx):
+    with pytest.raises(ch.ChangeError) as e:
+        ch.propose(ctx, ch.ChangeIn("Remove", APP, {}, delete=True), DEV_AGENT)
+    assert e.value.status == 403
+
+
+def test_reserved_env_vars_and_image_pairs_rejected(ctx):
+    with pytest.raises(ch.ChangeError) as e:
+        ch.propose(
+            ctx,
+            ch.ChangeIn("Shadow", APP, {"environments": {"dev": {"env_vars": {"ALLOWED_TENANTS": "x"}}}}),
+            DEV_ADMIN,
+        )
+    assert "set by the platform" in e.value.message
+    img = "acr.azurecr.io/demo-cpa/intake-portal-frontend@sha256:" + "a" * 64
+    with pytest.raises(ch.ChangeError) as e:
+        ch.propose(ctx, ch.ChangeIn("Half", APP, {"environments": {"dev": {"images": {"frontend": img}}}}), DEV_ADMIN)
+    assert "both frontend and backend" in e.value.message
+
+
+def test_pitr_retention_needs_approval(ctx):
+    c = ch.propose(ctx, ch.ChangeIn("Shorter PITR", APP, {"backup": {"pitr_retention_days": 7}}), DEV_ADMIN)
+    assert c.status == "pending"

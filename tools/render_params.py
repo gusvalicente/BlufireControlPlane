@@ -478,7 +478,7 @@ def render(reg: Registry, root: Path) -> Result:
                     "client": app["client"], "app": app["id"], "env": env, "stage": app["stage"],
                     "resource_group": n["resource_group"], "shared_resource_group": n["shared_resource_group"],
                     "frontend": n["frontend"], "backend": n["backend"], "database": n["database"],
-                    "dbops_job": n["dbops_job"], "release": e.get("release"),
+                    "dbops_job": n["dbops_job"], "release": e.get("release"), "identity": n["identity"],
                 })
 
     admin_ip = admin_cidr.removesuffix("/32")

@@ -42,6 +42,74 @@ module identity 'identity.bicep' = {
   }
 }
 
+// The internet-facing UI and MCP server get their own identities with almost no rights, so a compromise of either
+// cannot read client secrets, the GitHub App key or the state database. Only platform-api and the worker use the
+// platform identity. The MCP identity holds just the Agent app role on platform-api (granted by bootstrap 60).
+module uiIdentity 'identity.bicep' = {
+  name: 'platform-ui-identity'
+  params: {
+    name: 'id-platform-ui'
+    location: location
+    tags: tags
+  }
+}
+
+module mcpIdentity 'identity.bicep' = {
+  name: 'platform-mcp-identity'
+  params: {
+    name: 'id-platform-mcp'
+    location: location
+    tags: tags
+  }
+}
+
+resource uiAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: acr
+  name: guid(acr.id, 'id-platform-ui', roles.acrPull)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.acrPull)
+    principalId: uiIdentity.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource mcpAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: acr
+  name: guid(acr.id, 'id-platform-mcp', roles.acrPull)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.acrPull)
+    principalId: mcpIdentity.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource kvRef 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: names.keyVault
+}
+
+// UI may read exactly its two secrets (they are created by bootstrap 60 before the apps pass).
+resource uiSecretRead 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for s in [
+  'ui-auth-secret'
+  'ui-entra-client-secret'
+]: if (deployApps) {
+  scope: secretRef[indexOf(['ui-auth-secret', 'ui-entra-client-secret'], s)]
+  name: guid(kvRef.id, s, 'id-platform-ui')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalId: uiIdentity.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [kv]
+}]
+
+resource secretRef 'Microsoft.KeyVault/vaults/secrets@2023-07-01' existing = [for s in [
+  'ui-auth-secret'
+  'ui-entra-client-secret'
+]: {
+  parent: kvRef
+  name: s
+}]
+
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: names.logAnalytics
   location: location
@@ -546,13 +614,16 @@ var uiSecrets = [
   { name: 'ui-entra-client-secret', keyVaultUrl: '${kvSecret}/ui-entra-client-secret' }
 ]
 
-var mcpEnv = concat(commonEnv, [
+var mcpEnv = [
+  { name: 'AZURE_CLIENT_ID', value: mcpIdentity.outputs.clientId }
+  { name: 'ENTRA_TENANT_ID', value: tenantId }
+  { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
   { name: 'PLATFORM_API_URL', value: apiUrl }
   { name: 'MCP_AUDIENCE', value: settings.mcpClientId }
   { name: 'MCP_RESOURCE_URL', value: mcpResourceUrl }
   { name: 'MCP_ALLOWED_OIDS', value: settings.adminObjectId }
   { name: 'API_SCOPE', value: '${settings.apiAudience}/.default' }
-])
+]
 
 var bindUi = deployApps && bindCustomDomains && !empty(uiDomain)
 var bindMcp = deployApps && bindCustomDomains && !empty(mcpDomain)
@@ -566,7 +637,7 @@ module ui 'container-app.bicep' = if (deployApps) {
     location: location
     tags: tags
     environmentId: cae.outputs.id
-    identityId: identity.outputs.id
+    identityId: uiIdentity.outputs.id
     registryServer: acr.properties.loginServer
     image: uiImage
     external: true
@@ -578,7 +649,7 @@ module ui 'container-app.bicep' = if (deployApps) {
     secrets: uiSecrets
     customDomain: bindUi ? uiDomain : ''
   }
-  dependsOn: [acrPull, kv]
+  dependsOn: [uiAcrPull, uiSecretRead]
 }
 
 module mcp 'container-app.bicep' = if (deployApps) {
@@ -588,7 +659,7 @@ module mcp 'container-app.bicep' = if (deployApps) {
     location: location
     tags: tags
     environmentId: cae.outputs.id
-    identityId: identity.outputs.id
+    identityId: mcpIdentity.outputs.id
     registryServer: acr.properties.loginServer
     image: controlPlaneImage
     command: ['blufire-mcp']
@@ -600,7 +671,7 @@ module mcp 'container-app.bicep' = if (deployApps) {
     env: mcpEnv
     customDomain: bindMcp ? mcpDomain : ''
   }
-  dependsOn: [acrPull]
+  dependsOn: [mcpAcrPull]
 }
 
 resource caeRef 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
@@ -638,7 +709,7 @@ module uiBound 'container-app.bicep' = if (bindUi) {
     location: location
     tags: tags
     environmentId: cae.outputs.id
-    identityId: identity.outputs.id
+    identityId: uiIdentity.outputs.id
     registryServer: acr.properties.loginServer
     image: uiImage
     external: true
@@ -660,7 +731,7 @@ module mcpBound 'container-app.bicep' = if (bindMcp) {
     location: location
     tags: tags
     environmentId: cae.outputs.id
-    identityId: identity.outputs.id
+    identityId: mcpIdentity.outputs.id
     registryServer: acr.properties.loginServer
     image: controlPlaneImage
     command: ['blufire-mcp']
@@ -712,6 +783,7 @@ module jobs 'job.bicep' = [for j in workerJobs: if (deployApps) {
 
 output identityPrincipalId string = identity.outputs.principalId
 output identityClientId string = identity.outputs.clientId
+output mcpPrincipalId string = mcpIdentity.outputs.principalId
 output dbopsPrincipalId string = dbopsIdentity.outputs.principalId
 output workspaceId string = law.id
 output workspaceCustomerId string = law.properties.customerId

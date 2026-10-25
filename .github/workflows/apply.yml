@@ -56,10 +56,19 @@ jobs:
         env:
           APP: ${{ inputs.app }}
           TARGET_ENV: ${{ inputs.env }}
-          BEFORE: ${{ github.event.before }}
+        # Deploy everything changed since the last *successful* apply (tag applied/main), not since the previous
+        # push: queued runs can be cancelled by GitHub's concurrency group, and a failed run must be retried by
+        # the next one. Without the tag (first run) everything is deployed.
         run: |
           if [ -n "$APP" ]; then
             python infra/scripts/deploy.py apply --app "$APP" $([ "$TARGET_ENV" != all ] && [ -n "$TARGET_ENV" ] && echo --env "$TARGET_ENV")
+          elif base="$(git rev-parse -q --verify refs/tags/applied/main)"; then
+            python infra/scripts/deploy.py apply --changed-since "$base" --tag-promotions
           else
-            python infra/scripts/deploy.py apply --changed-since "$BEFORE" --tag-promotions
+            python infra/scripts/deploy.py apply --tag-promotions
           fi
+      - name: Record the last successful apply
+        if: success() && inputs.app == ''
+        run: |
+          git tag -f applied/main "$GITHUB_SHA"
+          git push -f origin refs/tags/applied/main

@@ -81,7 +81,7 @@ def test_tools_call_api_as_agent(ctx):
         return json.loads(content[0].text)
 
     fleet = call("fleet_status", {})
-    assert fleet["prod_total"] == 1
+    assert fleet["prod_total"] == 0
     patch = json.dumps({"alerts": {"latency_p95_ms": 1700}})
     change = call(
         "propose_registry_change",

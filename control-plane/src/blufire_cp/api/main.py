@@ -79,7 +79,11 @@ LOG_TABLES = {
     "SecurityIncident",
     "SecurityAlert",
 }
-LOG_BLOCKED = ("union", "workspace(", "app(", "search ", "find ", "externaldata", "evaluate")
+# Anything that can reach another table or workspace is refused; only single-table pipelines are allowed.
+LOG_BLOCKED = (
+    "union", "join", "lookup", "toscalar", "materialize", "workspace(", "app(", "cluster(", "adx(", "arg(",
+    "database(", "table(", "search", "find ", "externaldata", "evaluate", "invoke", ";", "let ",
+)
 
 
 class GraduateIn(BaseModel):

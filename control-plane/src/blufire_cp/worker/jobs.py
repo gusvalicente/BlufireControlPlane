@@ -13,12 +13,13 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import changes as ch
 from .. import digest as dg
 from .. import drift as dr
+from ..auth import CI
 from ..context import Context
 from ..models import (
     Backup,
-    Change,
     Cost,
     Deployment,
     Drift,
@@ -30,7 +31,7 @@ from ..models import (
     SecretMeta,
     now,
 )
-from ..naming import app_env
+from ..naming import acr_login_server, app_env, image_repo
 from ..registry import ENVS, Snapshot
 from ..telemetry import event
 
@@ -78,6 +79,15 @@ def health(env_cfg: dict, alerts: dict, metrics: dict | None, replicas: int | No
 
 
 def trivy_findings(app: str, env: str, report: dict, sla: dict, seen: datetime) -> list[Finding]:
+    """report = {client, app, env, scanned_at, images, frontend: <trivy JSON>, backend: <trivy JSON>}
+    as written by nightly-image-scan.yml."""
+    out = []
+    for component in ("frontend", "backend"):
+        out += _trivy_component(app, env, component, report.get(component) or {}, sla, seen)
+    return out
+
+
+def _trivy_component(app: str, env: str, component: str, report: dict, sla: dict, seen: datetime) -> list[Finding]:
     out = []
     for result in report.get("Results", []) or []:
         for v in result.get("Vulnerabilities", []) or []:
@@ -86,11 +96,11 @@ def trivy_findings(app: str, env: str, report: dict, sla: dict, seen: datetime) 
                 continue
             out.append(
                 Finding(
-                    id=f"trivy/{app}/{env}/{v['VulnerabilityID']}/{v.get('PkgName', '')}",
+                    id=f"trivy/{app}/{env}/{component}/{v['VulnerabilityID']}/{v.get('PkgName', '')}",
                     source="trivy",
                     app=app,
                     env=env,
-                    title=f"{v.get('PkgName')} {v.get('InstalledVersion', '')}".strip()
+                    title=f"{component}: {v.get('PkgName')} {v.get('InstalledVersion', '')}".strip()
                     + (f", fixed in {v['FixedVersion']}" if v.get("FixedVersion") else ""),
                     package=v.get("PkgName"),
                     cve=v["VulnerabilityID"],
@@ -321,7 +331,11 @@ def sync(ctx: Context) -> str:
         upsert_findings(s, "defender", defender)
 
         for app in snap.apps.values():
-            alerts = ctx.store.dependabot_alerts(app["repo"])
+            try:
+                alerts = ctx.store.dependabot_alerts(app["repo"])
+            except Exception:  # never resolve findings because the read failed
+                log.exception("cannot read Dependabot alerts for %s", app["repo"])
+                continue
             fresh = [
                 Finding(
                     id=f"dependabot/{app['repo']}/{a['number']}",
@@ -500,32 +514,7 @@ def nightly_backup(ctx: Context) -> str:
     with ctx.sessions() as s:
         for app_id, env in late_backups(snap, s, datetime.now(UTC)):
             event("backup_failed", app=app_id, env=env, detail="no successful nightly dump in 26 hours")
-        _cleanup_graduated(ctx, snap, s)
     return f"started {started + 1} dump job(s)"
-
-
-def _cleanup_graduated(ctx: Context, snap: Snapshot, s: Session) -> None:
-    """Drop an app's sandbox databases 14 days after its graduation PR merged."""
-    cutoff = datetime.now(UTC) - timedelta(days=14)
-    for c in s.scalars(select(Change).where(Change.status == "applied")):
-        if "operation:graduate" not in (c.matched_rules or []) or not c.decided_at or _aware(c.decided_at) > cutoff:
-            continue
-        app_id = next((a for a, f in snap.app_files.items() if f == c.file), None)
-        done = s.scalar(select(Operation).where(Operation.action == "sandbox_cleanup", Operation.app == app_id))
-        if not app_id or done:
-            continue
-        app = snap.apps[app_id]
-        sandbox = {**app, "stage": "incubating"}
-        for env in ENVS:
-            db = app_env(sandbox, env, snap.platform, snap.clients).database
-            ctx.azure.start_job(
-                snap.platform["subscriptions"]["sandbox"],
-                "rg-sandbox-shared",
-                "caj-sandbox-dbops",
-                ["drop-database", "--database", db],
-            )
-        s.add(Operation(action="sandbox_cleanup", app=app_id, requested_by="worker", status="done", finished_at=now()))
-    s.commit()
 
 
 def restore_test(ctx: Context) -> str:
@@ -578,8 +567,35 @@ def _send_email(endpoint: str, sender: str, to: list[str], subject: str, body: s
     r.raise_for_status()
 
 
+def dev_bump(ctx: Context) -> int:
+    """Deploy new dev builds. App repos push <client>/<app>-frontend|backend:dev to ACR and hold no platform
+    credentials; the worker notices the new digests and commits the dev image change (low risk, as CI)."""
+    snap = ctx.snapshot(fresh=True)
+    server = acr_login_server(snap.platform)
+    bumped = 0
+    for app in snap.apps.values():
+        images = {}
+        for component in ("frontend", "backend"):
+            repo = image_repo(app, component)
+            digest = ctx.azure.acr_digest(server, repo, "dev")
+            if digest:
+                images[component] = f"{server}/{repo}@{digest}"
+        if len(images) < 2 or images == (app["environments"]["dev"].get("images") or {}):
+            continue
+        release = "dev-" + images["backend"].rsplit(":", 1)[-1][:7]
+        patch = {"environments": {"dev": {"images": images, "release": release}}}
+        ch.propose(ctx, ch.ChangeIn(f"Deploy {app['id']} {release} to dev", snap.app_files[app["id"]], patch), CI)
+        bumped += 1
+    return bumped
+
+
 def ops(ctx: Context) -> str:
-    """Run queued operations requested through the API."""
+    """Pick up new dev builds, then run queued operations requested through the API."""
+    if ctx.azure is not None:
+        try:
+            dev_bump(ctx)
+        except Exception:  # a registry or ACR hiccup must not block queued operations
+            log.exception("dev image check failed")
     handled = 0
     with ctx.sessions() as s:
         queued = s.scalars(select(Operation).where(Operation.status == "queued").order_by(Operation.created_at)).all()

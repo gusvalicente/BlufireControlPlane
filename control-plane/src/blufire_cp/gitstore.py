@@ -34,7 +34,8 @@ class GitStore(Protocol):
     ) -> str: ...
     def create_branch(self, name: str, from_ref: str = "main") -> None: ...
     def open_pr(self, branch: str, title: str, body: str) -> PullRequest: ...
-    def merge_pr(self, number: int, title: str) -> str: ...
+    def merge_pr(self, number: int, title: str, head_sha: str | None) -> str: ...
+    def pr_files(self, number: int) -> list[str]: ...
     def close_pr(self, number: int, branch: str) -> None: ...
 
 
@@ -59,7 +60,7 @@ class GitHubStore:
 
     def _req(self, method: str, url: str, **kw) -> httpx.Response:
         r = self._http.request(method, url, headers=self._auth(), **kw)
-        if r.status_code in (409, 422) and method in ("PUT", "DELETE"):
+        if r.status_code in (405, 409, 422) and method in ("PUT", "DELETE"):
             raise ConflictError(r.json().get("message", r.text))
         if r.status_code == 404:
             raise FileNotFoundError(url)
@@ -100,11 +101,22 @@ class GitHubStore:
         pr = data.json()
         return PullRequest(pr["number"], pr["html_url"], branch)
 
-    def merge_pr(self, number: int, title: str) -> str:
-        r = self._req(
-            "PUT", f"{self._base}/pulls/{number}/merge", json={"merge_method": "squash", "commit_title": title}
-        )
+    def merge_pr(self, number: int, title: str, head_sha: str | None) -> str:
+        body = {"merge_method": "squash", "commit_title": title}
+        if head_sha:
+            body["sha"] = head_sha  # GitHub refuses the merge if the branch moved since Gus reviewed it
+        r = self._req("PUT", f"{self._base}/pulls/{number}/merge", json=body)
         return r.json()["sha"]
+
+    def pr_files(self, number: int) -> list[str]:
+        files: list[str] = []
+        page = 1
+        while True:
+            batch = self._req("GET", f"{self._base}/pulls/{number}/files", params={"per_page": 100, "page": page}).json()
+            files += [f["filename"] for f in batch] + [f["previous_filename"] for f in batch if f.get("previous_filename")]
+            if len(batch) < 100:
+                return files
+            page += 1
 
     def close_pr(self, number: int, branch: str) -> None:
         self._req("PATCH", f"{self._base}/pulls/{number}", json={"state": "closed"})
@@ -118,10 +130,15 @@ class GitHubStore:
         )
 
     def dependabot_alerts(self, repo: str) -> list[dict]:
-        r = self._http.get(
-            f"/repos/{repo}/dependabot/alerts", params={"state": "open", "per_page": 100}, headers=self._auth()
-        )
-        return r.json() if r.status_code == 200 else []
+        """Open alerts, all pages. Raises on any error so callers never mistake a failure for zero alerts."""
+        alerts: list[dict] = []
+        url, params = f"/repos/{repo}/dependabot/alerts", {"state": "open", "per_page": 100}
+        while url:
+            r = self._http.get(url, params=params, headers=self._auth())
+            r.raise_for_status()
+            alerts += r.json()
+            url, params = r.links.get("next", {}).get("url"), None
+        return alerts
 
 
 @dataclass
@@ -131,6 +148,7 @@ class MemoryStore:
     branches: dict[str, dict[str, str]] = field(default_factory=lambda: {"main": {}})
     prs: dict[int, PullRequest] = field(default_factory=dict)
     bases: dict[str, dict[str, str]] = field(default_factory=dict)
+    heads: dict[str, str] = field(default_factory=dict)
     commits: int = 0
 
     @classmethod
@@ -169,7 +187,8 @@ class MemoryStore:
         else:
             files[path] = text
         self.commits += 1
-        return f"c{self.commits:07d}"
+        self.heads[branch] = f"c{self.commits:07d}"
+        return self.heads[branch]
 
     def create_branch(self, name: str, from_ref: str = "main") -> None:
         self.branches[name] = dict(self.branches[from_ref])
@@ -181,10 +200,17 @@ class MemoryStore:
         self.prs[number] = pr
         return pr
 
-    def merge_pr(self, number: int, title: str) -> str:
+    def pr_files(self, number: int) -> list[str]:
+        pr = self.prs[number]
+        head, base = self.branches[pr.branch], self.bases[pr.branch]
+        return sorted(p for p in set(base) | set(head) if base.get(p) != head.get(p))
+
+    def merge_pr(self, number: int, title: str, head_sha: str | None) -> str:
         pr = self.prs[number]
         if pr.state != "open":
             raise ConflictError(f"PR {number} is {pr.state}")
+        if head_sha and self.heads.get(pr.branch) != head_sha:
+            raise ConflictError(f"PR {number} head moved since it was reviewed")
         main, head, base = self.branches["main"], self.branches[pr.branch], self.bases[pr.branch]
         changed = {p for p in set(base) | set(head) if base.get(p) != head.get(p)}
         if any(main.get(p) != base.get(p) for p in changed):

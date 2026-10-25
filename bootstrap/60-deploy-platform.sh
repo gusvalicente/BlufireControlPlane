@@ -4,7 +4,8 @@
 #   2. Key Vault secrets, then builds the three control plane images in ACR (no local Docker needed)
 #   3. the api, ui, mcp apps and worker jobs
 #   4. custom domains, after you create the DNS records it prints
-# then grants the platform identity its tenant-wide roles and the Agent app role, and updates the backup firewall.
+# then grants the platform identity its tenant-wide roles, gives the MCP identity the Agent app role, and updates
+# the backup firewall.
 #
 #   bootstrap/60-deploy-platform.sh --github-app-key <path-to.pem> [--skip-build] [--domains-only]
 # Needs: 30 and 40 done, Owner on mg-blufire (role assignments), Application Administrator (app role).
@@ -98,15 +99,16 @@ for role in "Reader" "Cost Management Reader"; do
     --role "$role" --scope "$mg_scope" -o none --only-show-errors
 done
 
-log "Agent app role for the platform identity (MCP server calls the API as Agent)"
+log "Agent app role for the MCP identity (the MCP server calls the API as Agent; nothing else holds this role)"
+mcp_principal="$(out mcpPrincipalId)"
 api_sp="$(az ad sp list --display-name blufire-platform-api --query '[0].id' -o tsv)"
 agent_role="$(az ad sp show --id "$api_sp" --query "appRoles[?value=='Agent'].id | [0]" -o tsv)"
 already="$(az rest --method GET --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$api_sp/appRoleAssignedTo" \
-  --query "value[?principalId=='$principal'] | length(@)" -o tsv)"
+  --query "value[?principalId=='$mcp_principal'] | length(@)" -o tsv)"
 [[ "$already" != "0" ]] || az rest --method POST \
   --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$api_sp/appRoleAssignedTo" \
   --headers Content-Type=application/json \
-  --body "{\"principalId\":\"$principal\",\"resourceId\":\"$api_sp\",\"appRoleId\":\"$agent_role\"}" -o none
+  --body "{\"principalId\":\"$mcp_principal\",\"resourceId\":\"$api_sp\",\"appRoleId\":\"$agent_role\"}" -o none
 
 log "Backup firewall: admit the platform subnet"
 deploy --only backup

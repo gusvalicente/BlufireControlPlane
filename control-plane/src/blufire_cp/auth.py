@@ -29,7 +29,9 @@ class Principal:
 
     @property
     def kind(self) -> str:
-        return "admin" if ADMIN in self.roles else "agent" if AGENT in self.roles else "none"
+        if ADMIN in self.roles:
+            return "admin"
+        return "agent" if AGENT in self.roles else "ci" if "CI" in self.roles else "none"
 
 
 @lru_cache(maxsize=4)
@@ -85,4 +87,6 @@ def require_step_up(p: Principal, step_up_token: str | None, s: Settings, key=No
 
 
 DEV_ADMIN = Principal(oid="dev-gus", name="Gus (dev)", roles=(ADMIN,), claims={"amr": ["mfa"]})
+# The worker acting on behalf of app build pipelines (dev image bumps only). Never reachable through the API.
+CI = Principal(oid="ci", name="build pipeline", roles=("CI",), claims={})
 DEV_AGENT = Principal(oid="dev-agent", name="Claude (dev)", roles=(AGENT,), claims={})

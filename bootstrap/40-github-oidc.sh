@@ -97,7 +97,7 @@ add_app_repo() {
   cat <<TXT
 
 In $org/$app_repo set variables AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID (platform), AZURE_BUILDS_CLIENT_ID=$builds_id,
-ACR_NAME=$(name acr), and secrets PLATFORM_APP_ID, PLATFORM_APP_PRIVATE_KEY (GitHub App with contents:write on $repo).
+ACR_NAME=$(name acr). No secrets: the platform worker deploys new :dev images itself.
 TXT
 }
 

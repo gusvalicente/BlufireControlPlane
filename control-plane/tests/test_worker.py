@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 
 from blufire_cp import changes as ch
 from blufire_cp.auth import DEV_ADMIN
@@ -70,23 +70,30 @@ class FakeAzure:
 
     def list_json_blobs(self, container, prefix=""):
         if container == "scan-results":
+            trivy = {
+                "Results": [
+                    {
+                        "Vulnerabilities": [
+                            {
+                                "VulnerabilityID": "CVE-2026-1187",
+                                "PkgName": "openssl",
+                                "InstalledVersion": "3.0.1",
+                                "FixedVersion": "3.0.9",
+                                "Severity": "CRITICAL",
+                            }
+                        ]
+                    }
+                ]
+            }
             return [
                 (
                     "intake-portal/prod/2026-10-24.json",
                     {
-                        "Results": [
-                            {
-                                "Vulnerabilities": [
-                                    {
-                                        "VulnerabilityID": "CVE-2026-1187",
-                                        "PkgName": "openssl",
-                                        "InstalledVersion": "3.0.1",
-                                        "FixedVersion": "3.0.9",
-                                        "Severity": "CRITICAL",
-                                    }
-                                ]
-                            }
-                        ]
+                        "client": "demo-cpa",
+                        "app": "intake-portal",
+                        "env": "prod",
+                        "frontend": trivy,
+                        "backend": {"Results": []},
                     },
                 )
             ]
@@ -129,6 +136,11 @@ class FakeAzure:
         if name in self.live:
             return self.live[name]
         raise FileNotFoundError(name)
+
+    digests: dict = {}
+
+    def acr_digest(self, server, repo, tag):
+        return self.digests.get(repo)
 
     def start_job(self, sub, rg, job, args):
         self.started.append((rg, job, args))
@@ -254,24 +266,22 @@ def test_nightly_backup_starts_dbops_and_flags_late(ctx, monkeypatch):
     ) in events
 
 
-def test_sandbox_cleanup_after_graduation(ctx):
-    c = ch.propose_graduation(ctx, "ap-portal", "44444444-4444-4444-4444-444444444444", DEV_ADMIN)
-    ch.approve(ctx, c.id, DEV_ADMIN)
-    with ctx.sessions() as s:
-        row = s.get(type(c), c.id)
-        row.decided_at = datetime.now(UTC) - timedelta(days=15)
-        s.commit()
+def test_dev_bump_from_acr(ctx):
     az = FakeAzure()
+    az.digests = {
+        "demo-cpa/intake-portal-frontend": "sha256:" + "c" * 64,
+        "demo-cpa/intake-portal-backend": "sha256:" + "d" * 64,
+    }
     ctx.azure = az
-    jobs.nightly_backup(ctx)
-    drops = [a for _, j, a in az.started if j == "caj-sandbox-dbops"]
-    assert [a[2] for a in drops] == [
-        "demo_tax_ap_portal_dev",
-        "demo_tax_ap_portal_cert",
-        "demo_tax_ap_portal_prod",
-    ]
-    jobs.nightly_backup(ctx)
-    assert len([a for _, j, a in az.started if j == "caj-sandbox-dbops"]) == 3
+    assert jobs.dev_bump(ctx) == 1
+    dev = ctx.snapshot(fresh=True).apps["intake-portal"]["environments"]["dev"]
+    assert dev["images"]["backend"].endswith("@sha256:" + "d" * 64) and dev["release"] == "dev-ddddddd"
+    assert jobs.dev_bump(ctx) == 0  # already deployed
+    from blufire_cp.models import Change
+
+    with ctx.sessions() as s:
+        c = s.query(Change).filter(Change.actor_kind == "ci").one()
+        assert c.status == "applied" and c.risk == "low"
 
 
 def test_ops_queue(ctx):

@@ -162,6 +162,26 @@ def pre_promotion_dump(m: dict) -> None:
         raise SystemExit(f"pre-promotion dump for {meta['client']}/{meta['app']} ended {status}; not deploying")
 
 
+def ensure_db_access(m: dict) -> None:
+    """Create the app's database (if missing) and grant its managed identity. Idempotent, so it runs after every
+    app deployment: the identity only exists once the app stack has deployed, and the backend needs the role to
+    run its migrations."""
+    meta = m["meta"]
+    job, rg, sub = meta["dbops_job"], meta["shared_resource_group"], m["subscription"]
+    execution = start_dbops(sub, rg, job, ["grant", "--app", meta["app"], "--env", meta["env"],
+                                           "--database", meta["database"], "--principal", meta["identity"]])
+    status = wait_job(job, rg, sub, execution)
+    if status != "Succeeded":
+        raise SystemExit(f"database grant for {meta['client']}/{meta['app']} {meta['env']} ended {status}")
+    # A backend that started before its role existed fails its migrations; restart it now that it can connect.
+    latest = az_json(["containerapp", "show", "--name", meta["backend"], "--resource-group", meta["resource_group"],
+                      "--subscription", sub, "--query",
+                      "{name:properties.latestRevisionName,health:properties.runningStatus}"]) or {}
+    if latest.get("name") and latest.get("health") not in {"Running", "RunningAtMaxScale"}:
+        run(["az", "containerapp", "revision", "restart", "--name", meta["backend"], "--resource-group",
+             meta["resource_group"], "--subscription", sub, "--revision", latest["name"]], check=False)
+
+
 def revision_healthy(app_name: str, rg: str, sub: str, timeout_s: int = 600) -> bool:
     deadline = time.time() + timeout_s
     while time.time() < deadline:
@@ -253,6 +273,8 @@ def main(argv: list[str] | None = None) -> int:
             if promoting:
                 pre_promotion_dump(m)
             run(deployment_cmd("apply", m, params_file, args.overrides), capture=True)
+            if m["kind"] == "app" and (load_params(new_file).get("backendImage") or "").strip():
+                ensure_db_access(m)
             result = "applied"
             if promoting:
                 meta = m["meta"]

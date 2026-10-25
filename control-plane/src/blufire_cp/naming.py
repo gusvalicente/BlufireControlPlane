@@ -11,6 +11,15 @@ def h(*parts: str, n: int = 6) -> str:
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:n]
 
 
+def acr_login_server(platform: dict) -> str:
+    return f"acrblufire{h(platform['subscriptions']['platform'])}.azurecr.io"
+
+
+def image_repo(app: dict, component: str) -> str:
+    """Repository app builds push to: <client>/<app>-frontend|backend (see reusable-app-build.yml)."""
+    return f"{app['client']}/{app['id']}-{component}"
+
+
 @dataclass(frozen=True)
 class AppEnvNames:
     subscription: str

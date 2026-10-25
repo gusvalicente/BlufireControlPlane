@@ -76,17 +76,3 @@ require_set() {
 }
 
 deploy() { python3 infra/scripts/deploy.py apply "$@"; }
-
-# start_dbops <subscription> <resource-group> <job> <arg>...  -> prints the execution name.
-# Starts a db-ops execution with new args. The start API replaces the container definition, so the job's current
-# container (image, env, resources) is copied and only args change.
-start_dbops() {
-  local sub="$1" rg="$2" job="$3"; shift 3
-  local base args body
-  base="https://management.azure.com/subscriptions/$sub/resourceGroups/$rg/providers/Microsoft.App/jobs/$job"
-  args="$(printf '%s\n' "$@" | jq -R . | jq -s .)"
-  body="$(az rest --method GET --uri "$base?api-version=2024-03-01" \
-    | jq --argjson a "$args" '{containers: [.properties.template.containers[0] | .args = $a]}')"
-  az rest --method POST --uri "$base/start?api-version=2024-03-01" --headers Content-Type=application/json \
-    --body "$body" --query name -o tsv
-}

@@ -56,7 +56,11 @@ def test_fleet_and_apps(client):
     r = client.get("/api/v1/fleet", headers=h())
     assert r.status_code == 200
     body = r.json()
-    assert body["prod_total"] == 1 and {a["id"] for a in body["apps"]} == {"intake-portal", "ap-portal"}
+    assert (
+        body["prod_total"] == 0
+        and body["headline"] == "No prod apps deployed yet"
+        and {a["id"] for a in body["apps"]} == {"intake-portal", "ap-portal"}
+    )
     detail = client.get("/api/v1/apps/intake-portal", headers=h()).json()
     assert detail["path"] == APP_FILE and "environments.prod" in detail["approval_fields"]
     assert client.get("/api/v1/apps/nope", headers=h()).status_code == 404
@@ -161,3 +165,19 @@ def test_audit_records_calls(client):
 def test_probes(client):
     assert client.get("/healthz").json() == {"ok": True}
     assert client.get("/readyz").json() == {"ok": True}
+
+
+def test_log_query_rejects_cross_table(client):
+    for kql in (
+        "AppTraces | join kind=inner (SigninLogs) on TimeGenerated",
+        "SigninLogs | take 1",
+        "AppTraces | lookup (AuditLogs) on Id",
+        "let x = 1; AppTraces",
+    ):
+        assert client.post("/api/v1/logs/query", json={"kql": kql}, headers=h(roles=("Agent",))).status_code == 400
+    assert (
+        client.post(
+            "/api/v1/logs/query", json={"kql": "AppTraces | where Message == 'x'"}, headers=h(roles=("Agent",))
+        ).status_code
+        == 200
+    )

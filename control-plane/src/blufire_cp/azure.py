@@ -61,6 +61,28 @@ class Azure:
         override = {"containers": [{**container, "args": args}]}
         return self.arm("POST", f"{path}/start", APP_API, override).get("name", "")
 
+    def acr_digest(self, login_server: str, repo: str, tag: str) -> str | None:
+        """Digest of repo:tag in ACR, or None when the tag does not exist. Uses an Entra token exchange."""
+        aad = self._cred.get_token(ARM_SCOPE).token
+        r = self._http.post(f"https://{login_server}/oauth2/exchange",
+                            data={"grant_type": "access_token", "service": login_server, "access_token": aad})
+        r.raise_for_status()
+        r = self._http.post(f"https://{login_server}/oauth2/token", data={
+            "grant_type": "refresh_token", "service": login_server, "scope": f"repository:{repo}:pull",
+            "refresh_token": r.json()["refresh_token"]})
+        r.raise_for_status()
+        accept = ", ".join([
+            "application/vnd.oci.image.index.v1+json", "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        ])
+        r = self._http.head(f"https://{login_server}/v2/{repo}/manifests/{tag}",
+                            headers={"Authorization": f"Bearer {r.json()['access_token']}", "Accept": accept})
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.headers.get("Docker-Content-Digest")
+
     def cost_month_to_date(self, sub: str) -> float:
         body = {
             "type": "ActualCost",

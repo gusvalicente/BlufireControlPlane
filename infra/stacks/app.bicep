@@ -85,6 +85,7 @@ module vault '../modules/kv-secrets-user.bicep' = {
   params: {
     keyVaultName: keyVaultName
     principalId: identity.outputs.principalId
+    secretNames: concat(secretNames, ['${appId}-auth-secret', '${appId}-entra-client-secret'])
   }
 }
 

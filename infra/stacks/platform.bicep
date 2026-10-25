@@ -102,6 +102,7 @@ module dbopsBackupWrite '../modules/storage-blob-role.bicep' = {
 
 output identityPrincipalId string = core.outputs.identityPrincipalId
 output identityClientId string = core.outputs.identityClientId
+output mcpPrincipalId string = core.outputs.mcpPrincipalId
 output workspaceId string = core.outputs.workspaceId
 output acrLoginServer string = core.outputs.acrLoginServer
 output keyVaultName string = core.outputs.keyVaultName

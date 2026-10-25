@@ -64,7 +64,7 @@ def app_summary(snap: Snapshot, s: Session, app_id: str) -> dict:
 
 def fleet(snap: Snapshot, s: Session) -> dict:
     apps = [app_summary(snap, s, a) for a in sorted(snap.apps)]
-    live = [a for a in apps if a["stage"] == "graduated"]
+    live = [a for a in apps if a["stage"] == "graduated" and a["envs"][2]["health"] != "not_deployed"]
     prod_up = sum(1 for a in live if a["envs"][2]["health"] in UP)
     open_p1 = s.scalar(
         select(func.count()).select_from(Incident).where(Incident.status == "open", Incident.severity == "p1")
@@ -84,10 +84,10 @@ def fleet(snap: Snapshot, s: Session) -> dict:
     elif live:
         headline = f"{len(live) - prod_up} of {len(live)} prod apps need attention"
     else:
-        headline = "No graduated apps yet"
+        headline = "No prod apps deployed yet"
     detail_parts = []
     if pending:
-        detail_parts.append(f"{pending} change{'s' if pending != 1 else ''} wait for your approval.")
+        detail_parts.append(f"{pending} change{'s wait' if pending != 1 else ' waits'} for your approval.")
     if critical:
         detail_parts.append(f"{critical} critical finding{'s' if critical != 1 else ''} open.")
     return {
