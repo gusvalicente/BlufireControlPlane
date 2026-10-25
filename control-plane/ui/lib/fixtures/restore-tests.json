@@ -1,0 +1,28 @@
+[
+ {
+  "id": "rt_031",
+  "app": "intake-portal",
+  "backup_id": "bkp_8890",
+  "started_at": "2026-10-03T07:00:00Z",
+  "duration_s": 400,
+  "checks": [
+   "schema version 27",
+   "41 tables present",
+   "row counts match source"
+  ],
+  "result": "passed"
+ },
+ {
+  "id": "rt_030",
+  "app": "intake-portal",
+  "backup_id": "bkp_8611",
+  "started_at": "2026-09-03T07:00:00Z",
+  "duration_s": 385,
+  "checks": [
+   "schema version 25",
+   "40 tables present",
+   "row counts match source"
+  ],
+  "result": "passed"
+ }
+]

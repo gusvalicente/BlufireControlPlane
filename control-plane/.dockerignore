@@ -1,0 +1,7 @@
+**/__pycache__
+**/*.pyc
+tests
+ui
+dbops
+.pytest_cache
+.ruff_cache

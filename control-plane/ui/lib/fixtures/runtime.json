@@ -1,0 +1,286 @@
+{
+ "intake-portal": {
+  "dev": {
+   "release": "v1.9.0-rc.1",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/intake-portal-frontend@sha256:80bfd2f0ea4804fd39f41e42339270970d88ee269e1a5f336713d602424f2b9a",
+    "backend": "acrblufireplatform.azurecr.io/intake-portal-backend@sha256:ee4f741d991db3ade72596e00acf0ac8ebcd62bf1f1f2114b7052f2c7413f31e"
+   },
+   "bicep_params": {
+    "appName": "intake-portal",
+    "environment": "dev",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 2,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-demo-cpa-nonprod",
+    "postgresDatabase": "intake_portal_dev",
+    "keyVault": "kv-example-cp-dev",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-intake-portal-dev"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  },
+  "cert": {
+   "release": "v1.9.0-rc.1",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/intake-portal-frontend@sha256:80bfd2f0ea4804fd39f41e42339270970d88ee269e1a5f336713d602424f2b9a",
+    "backend": "acrblufireplatform.azurecr.io/intake-portal-backend@sha256:ee4f741d991db3ade72596e00acf0ac8ebcd62bf1f1f2114b7052f2c7413f31e"
+   },
+   "bicep_params": {
+    "appName": "intake-portal",
+    "environment": "cert",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 2,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-demo-cpa-nonprod",
+    "postgresDatabase": "intake_portal_cert",
+    "keyVault": "kv-example-cp-cert",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-intake-portal-cert"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  },
+  "prod": {
+   "release": "v1.8.2",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/intake-portal-frontend@sha256:7b33e24170ceee18365b254b11e3b8ebed47e74c89625d91ab112a0452306ac8",
+    "backend": "acrblufireplatform.azurecr.io/intake-portal-backend@sha256:9fd5c2816a6534d44ce814965f163d347ef89ead58d37671d0a7165ab67f28b2"
+   },
+   "bicep_params": {
+    "appName": "intake-portal",
+    "environment": "prod",
+    "location": "eastus2",
+    "minReplicas": 1,
+    "maxReplicas": 3,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-demo-cpa-prod",
+    "postgresDatabase": "intake_portal_prod",
+    "keyVault": "kv-example-cp-prod",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-intake-portal-prod"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "warning",
+    "FEATURE_BULK_UPLOAD": "false"
+   },
+   "secrets": [
+    {
+     "name": "smtp-password",
+     "last_rotated": "2026-09-14T15:02:00Z",
+     "expires": "2027-03-14T00:00:00Z"
+    },
+    {
+     "name": "cch-integrator-key",
+     "last_rotated": "2026-09-14T15:02:00Z",
+     "expires": "2027-03-14T00:00:00Z"
+    },
+    {
+     "name": "session-signing-key",
+     "last_rotated": "2026-09-14T15:02:00Z",
+     "expires": "2027-03-14T00:00:00Z"
+    }
+   ]
+  }
+ },
+ "ap-portal": {
+  "dev": {
+   "release": "v2.3.0",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/ap-portal-frontend@sha256:11a52baaa1071201270ad57b75255d18ab0e58f3f0a84f716fedc825ce9033e2",
+    "backend": "acrblufireplatform.azurecr.io/ap-portal-backend@sha256:c8cd355421bdc64d84dfc569a377c557993020c298f3b78faf96cc1286e27fcc"
+   },
+   "bicep_params": {
+    "appName": "ap-portal",
+    "environment": "dev",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 1,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-sandbox-shared",
+    "postgresDatabase": "ap_portal_dev",
+    "keyVault": "kv-example-ta-dev",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-ap-portal-dev"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  },
+  "cert": {
+   "release": "v2.3.0",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/ap-portal-frontend@sha256:11a52baaa1071201270ad57b75255d18ab0e58f3f0a84f716fedc825ce9033e2",
+    "backend": "acrblufireplatform.azurecr.io/ap-portal-backend@sha256:c8cd355421bdc64d84dfc569a377c557993020c298f3b78faf96cc1286e27fcc"
+   },
+   "bicep_params": {
+    "appName": "ap-portal",
+    "environment": "cert",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 1,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-sandbox-shared",
+    "postgresDatabase": "ap_portal_cert",
+    "keyVault": "kv-example-ta-cert",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-ap-portal-cert"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  },
+  "prod": {
+   "release": "v2.2.4",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/ap-portal-frontend@sha256:32c9d5a1e06e6cf9fbc38f6f8752a333065fbc38f87d06de8baaaa8339c6a978",
+    "backend": "acrblufireplatform.azurecr.io/ap-portal-backend@sha256:f60e60791c34078c1729576ee3edfca94e1933199bfba6ef9037e3c189466094"
+   },
+   "bicep_params": {
+    "appName": "ap-portal",
+    "environment": "prod",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 1,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-sandbox-shared",
+    "postgresDatabase": "ap_portal_prod",
+    "keyVault": "kv-example-ta-prod",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-ap-portal-prod"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  }
+ },
+ "request-portal": {
+  "dev": {
+   "release": "v1.2.5",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/request-portal-frontend@sha256:f046709b0590a845a67aac7850e94f6b397c6ca2251aa1fc8a02b2e36d730711",
+    "backend": "acrblufireplatform.azurecr.io/request-portal-backend@sha256:07178cff8d9588bf13748807fbdf43ce1fc5e9aeb3b97dc9b5f12b59b8d8c50e"
+   },
+   "bicep_params": {
+    "appName": "request-portal",
+    "environment": "dev",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 1,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-sandbox-shared",
+    "postgresDatabase": "request_portal_dev",
+    "keyVault": "kv-example-ad-dev",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-request-portal-dev"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  },
+  "cert": {
+   "release": "v1.2.5",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/request-portal-frontend@sha256:f046709b0590a845a67aac7850e94f6b397c6ca2251aa1fc8a02b2e36d730711",
+    "backend": "acrblufireplatform.azurecr.io/request-portal-backend@sha256:07178cff8d9588bf13748807fbdf43ce1fc5e9aeb3b97dc9b5f12b59b8d8c50e"
+   },
+   "bicep_params": {
+    "appName": "request-portal",
+    "environment": "cert",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 1,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-sandbox-shared",
+    "postgresDatabase": "request_portal_cert",
+    "keyVault": "kv-example-ad-cert",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-request-portal-cert"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  },
+  "prod": {
+   "release": "v1.2.5",
+   "images": {
+    "frontend": "acrblufireplatform.azurecr.io/request-portal-frontend@sha256:f046709b0590a845a67aac7850e94f6b397c6ca2251aa1fc8a02b2e36d730711",
+    "backend": "acrblufireplatform.azurecr.io/request-portal-backend@sha256:07178cff8d9588bf13748807fbdf43ce1fc5e9aeb3b97dc9b5f12b59b8d8c50e"
+   },
+   "bicep_params": {
+    "appName": "request-portal",
+    "environment": "prod",
+    "location": "eastus2",
+    "minReplicas": 0,
+    "maxReplicas": 1,
+    "ingressExternal": true,
+    "targetPort": 3000,
+    "backendTargetPort": 8000,
+    "cpu": "0.5",
+    "memory": "1Gi",
+    "originRestriction": false,
+    "postgresServer": "psql-sandbox-shared",
+    "postgresDatabase": "request_portal_prod",
+    "keyVault": "kv-example-ad-prod",
+    "logAnalyticsWorkspace": "log-platform-prod",
+    "appInsights": "appi-request-portal-prod"
+   },
+   "env_vars": {
+    "LOG_LEVEL": "info"
+   },
+   "secrets": []
+  }
+ }
+}

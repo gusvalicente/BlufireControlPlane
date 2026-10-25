@@ -1,0 +1,61 @@
+# Mirrors the platform repo and every app repo in the registry to backup storage (repo-mirrors, immutable 90 days).
+# The Mac Mini pulls these for the off-cloud copy.
+name: nightly-repo-mirror
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: platform-azure
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: actions/create-github-app-token@v1
+        id: token
+        with:
+          app-id: ${{ secrets.PLATFORM_APP_ID }}
+          private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: Mirror and upload
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          names="$(python tools/render_params.py --names)"
+          sa="$(jq -r .backupStorage <<<"$names")"; rg="$(jq -r .backupResourceGroup <<<"$names")"
+          bsub="$(python -c 'import yaml; print(yaml.safe_load(open("platform.yaml"))["subscriptions"]["backup"])')"
+          ip="$(curl -s https://api.ipify.org)"
+          az storage account network-rule add --account-name "$sa" --resource-group "$rg" --subscription "$bsub" --ip-address "$ip" -o none
+          trap 'az storage account network-rule remove --account-name "$sa" --resource-group "$rg" --subscription "$bsub" --ip-address "$ip" -o none' EXIT
+          sleep 30
+
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          repos="$(python -c 'import glob,yaml; print("\n".join(sorted({yaml.safe_load(open(p))["repo"] for p in glob.glob("registry/apps/*/*.yaml")})))')"
+          for repo in "$GITHUB_REPOSITORY" $repos; do
+            [[ "$repo" == *REPLACE* ]] && continue
+            dir="$(basename "$repo").git"
+            git clone --mirror --quiet "https://x-access-token:${TOKEN}@github.com/$repo.git" "$dir"
+            tar -czf "$dir.tar.gz" "$dir"
+            az storage blob upload --auth-mode login --account-name "$sa" --container-name repo-mirrors \
+              --name "${repo#*/}/$stamp.tar.gz" --file "$dir.tar.gz" -o none
+            rm -rf "$dir" "$dir.tar.gz"
+            echo "mirrored $repo"
+          done

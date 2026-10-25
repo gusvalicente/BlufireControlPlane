@@ -1,0 +1,28 @@
+id: ap-portal
+client: demo-tax
+name: AP Portal
+repo: REPLACE-github-org/demo-tax-ap-portal
+stage: incubating
+client_data: false
+stack:
+  frontend: nextjs
+  backend: fastapi
+auth:
+  entra_app_id: null
+  allowed_tenants: [33333333-3333-3333-3333-333333333333]
+  consent_granted: false
+environments:
+  dev:
+    scale: {min: 0, max: 1}
+    origins: {enabled: false, cidrs: []}
+  cert:
+    scale: {min: 0, max: 1}
+    origins: {enabled: false, cidrs: []}
+  prod:
+    scale: {min: 0, max: 1}
+    origins: {enabled: false, cidrs: []}
+alerts:
+  latency_p95_ms: 2000
+  error_rate_pct: 5
+backup:
+  pitr_retention_days: 7

@@ -1,0 +1,62 @@
+[
+ {
+  "id": "dep_118",
+  "app": "intake-portal",
+  "env": "cert",
+  "release": "v1.9.0-rc.1",
+  "image_digest": "sha256:f55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114",
+  "git_sha": "b71c0e2",
+  "approver": "Gus",
+  "started_at": "2026-10-24T20:11:00Z",
+  "finished_at": "2026-10-24T20:15:00Z",
+  "result": "succeeded"
+ },
+ {
+  "id": "dep_117",
+  "app": "ap-portal",
+  "env": "cert",
+  "release": "v2.3.0",
+  "image_digest": "sha256:2c3a4249d77070058649dbd822dcaf7957586fce428cfb2ca88b94741eda8b07",
+  "git_sha": "9d0e1aa",
+  "approver": "Gus",
+  "started_at": "2026-10-24T16:40:00Z",
+  "finished_at": null,
+  "result": "running"
+ },
+ {
+  "id": "dep_116",
+  "app": "intake-portal",
+  "env": "prod",
+  "release": "v1.8.2",
+  "image_digest": "sha256:f46dd28a5499d8efef0b8fb8ee1ec1c5a5e407c9381741d576ba8deb4f59ec3f",
+  "git_sha": "5aa31f4",
+  "approver": "Gus",
+  "started_at": "2026-10-21T21:12:00Z",
+  "finished_at": "2026-10-21T21:16:00Z",
+  "result": "succeeded"
+ },
+ {
+  "id": "dep_115",
+  "app": "intake-portal",
+  "env": "prod",
+  "release": "v1.8.1",
+  "image_digest": "sha256:4539e4b4889079c2a00afeae0bfc1439840ef2379a1fb81c8ba27361ad476d6b",
+  "git_sha": "77e0c19",
+  "approver": "Gus",
+  "started_at": "2026-10-14T21:05:00Z",
+  "finished_at": "2026-10-14T21:09:00Z",
+  "result": "rolled_back"
+ },
+ {
+  "id": "dep_114",
+  "app": "request-portal",
+  "env": "prod",
+  "release": "v1.2.5",
+  "image_digest": "sha256:66220e71591b2d933c0e935c138ebfd60710b91fe2fb7599eced4430b3dbb3c9",
+  "git_sha": "c0ffee1",
+  "approver": "Gus",
+  "started_at": "2026-10-10T19:00:00Z",
+  "finished_at": "2026-10-10T19:04:00Z",
+  "result": "succeeded"
+ }
+]

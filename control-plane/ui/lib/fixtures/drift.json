@@ -1,0 +1,38 @@
+[
+ {
+  "id": "drf_007",
+  "app": "request-portal",
+  "env": "prod",
+  "resource": "ca-example-advisors-request-portal-be-prod",
+  "property": "scale.maxReplicas",
+  "desired": "1",
+  "live": "10",
+  "changed_by": "Gus (portal)",
+  "detected_at": "2026-10-24T18:52:00Z",
+  "status": "open"
+ },
+ {
+  "id": "drf_006",
+  "app": "ap-portal",
+  "env": "cert",
+  "resource": "ca-demo-tax-ap-portal-be-cert",
+  "property": "env.LOG_LEVEL",
+  "desired": "info",
+  "live": "debug",
+  "changed_by": "Gus (portal)",
+  "detected_at": "2026-10-19T12:00:00Z",
+  "status": "reverted"
+ },
+ {
+  "id": "drf_005",
+  "app": "intake-portal",
+  "env": "dev",
+  "resource": "ca-demo-cpa-intake-portal-fe-dev",
+  "property": "scale.minReplicas",
+  "desired": "1",
+  "live": "0",
+  "changed_by": "Gus (portal)",
+  "detected_at": "2026-10-12T12:00:00Z",
+  "status": "adopted"
+ }
+]

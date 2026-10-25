@@ -1,0 +1,27 @@
+# Change classification. A change needs approval (PR + step-up MFA in the admin UI) when ANY rule matches.
+# Everything else commits straight to main. Changes proposed by the Agent role (Claude through MCP) always open a PR,
+# and the Agent role can never approve.
+# Changing this file always needs approval.
+version: 1
+agent_always_requires_approval: true
+approval_required:
+  # Any change to these files (glob, relative to repo root).
+  files:
+    - platform.yaml
+    - policies/*.yaml
+    - registry/clients/*.yaml
+  # Dotted paths inside registry/apps/**/*.yaml. A rule matches a changed path when the rule is a
+  # segment-wise prefix of it; "*" matches exactly one segment.
+  app_paths:
+    - repo
+    - stage
+    - client_data
+    - auth
+    - environments.prod
+    - environments.cert.images
+    - environments.*.origins
+    - environments.*.secrets
+  # Creating or deleting a registry file.
+  file_operations: [create, delete]
+  # Direct operations (not git changes) that still need approval.
+  operations: [secret_rotate, rollback_prod, graduate, drift_adopt_prod, drift_revert_prod]

@@ -1,0 +1,38 @@
+{
+ "2026-10": {
+  "month": "2026-10",
+  "total_usd": 131.4,
+  "by_client": [
+   {
+    "client": "demo-cpa",
+    "usd": 58.2
+   },
+   {
+    "client": "platform",
+    "usd": 49.6
+   },
+   {
+    "client": "sandbox",
+    "usd": 23.6
+   }
+  ]
+ },
+ "2026-09": {
+  "month": "2026-09",
+  "total_usd": 118.9,
+  "by_client": [
+   {
+    "client": "demo-cpa",
+    "usd": 52.1
+   },
+   {
+    "client": "platform",
+    "usd": 44.3
+   },
+   {
+    "client": "sandbox",
+    "usd": 22.5
+   }
+  ]
+ }
+}

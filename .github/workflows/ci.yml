@@ -1,0 +1,124 @@
+# Pull request checks for the platform repo. Every job must pass before merge (set as required checks).
+name: ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  registry:
+    name: Registry renders and tools tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema pytest
+      - run: python tools/render_params.py --out build/params
+      - run: pytest tools/tests -q
+
+  bicep:
+    name: Bicep builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: az bicep install
+      - run: |
+          for f in infra/modules/*.bicep infra/stacks/*.bicep; do
+            echo "::group::$f"
+            az bicep build --file "$f" --stdout > /dev/null
+            echo "::endgroup::"
+          done
+
+  control-plane:
+    name: Control plane lint and tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_HOST_AUTH_METHOD: trust }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      DBOPS_TEST_PGHOST: localhost
+      DBOPS_TEST_PGPORT: "5432"
+      DBOPS_TEST_PGUSER: postgres
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: |
+          pip install -e "control-plane[dev]" -e "templates/app/backend[dev]"
+          ruff check control-plane/src control-plane/tests control-plane/dbops tools heartbeat templates/app/backend
+          pytest control-plane/tests -q
+          (cd templates/app/backend && pytest -q)
+
+  ui:
+    name: Admin UI lint and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          if [ ! -f control-plane/ui/package.json ]; then echo "no UI yet"; exit 0; fi
+          cd control-plane/ui
+          npm ci
+          npm run lint
+          UI_MOCK=1 npm run build
+
+  trivy-fs:
+    name: Trivy filesystem scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+  whatif:
+    name: Azure what-if
+    needs: [registry, bicep]
+    # Forks never get Azure credentials; skip until the what-if identity is configured.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && vars.AZURE_WHATIF_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_WHATIF_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: What-if for changed deployments
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: python infra/scripts/deploy.py whatif --changed-since "$BASE" --report whatif.md
+      - name: Comment on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          head -c 60000 whatif.md > comment.md
+          gh pr comment "$PR" --body-file comment.md --edit-last || gh pr comment "$PR" --body-file comment.md

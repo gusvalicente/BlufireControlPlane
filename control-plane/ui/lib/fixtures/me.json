@@ -1,0 +1,8 @@
+{
+ "oid": "9e8d7c6b-1111-2222-3333-444455556666",
+ "name": "Gus",
+ "roles": [
+  "Admin"
+ ],
+ "mfa_fresh": true
+}

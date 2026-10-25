@@ -1,0 +1,65 @@
+# Turns the registry into Azure. Runs on every merge to main that touches desired state, and on demand to
+# re-apply one app environment from git (drift revert from the admin UI).
+name: apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - registry/**
+      - platform.yaml
+      - infra/**
+      - alerts/**
+      - policies/**
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "App id or client/app to re-apply from git (blank = everything changed since the last commit)"
+        required: false
+        default: ""
+      env:
+        description: "Environment (with app)"
+        required: false
+        type: choice
+        options: [all, dev, cert, prod]
+        default: all
+
+# One Azure-changing workflow at a time (apply, image scan and repo mirror all touch the backup firewall).
+concurrency:
+  group: platform-azure
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - run: |
+          git config user.name "blufire-apply"
+          git config user.email "apply@users.noreply.github.com"
+      - name: Deploy
+        env:
+          APP: ${{ inputs.app }}
+          TARGET_ENV: ${{ inputs.env }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$APP" ]; then
+            python infra/scripts/deploy.py apply --app "$APP" $([ "$TARGET_ENV" != all ] && [ -n "$TARGET_ENV" ] && echo --env "$TARGET_ENV")
+          else
+            python infra/scripts/deploy.py apply --changed-since "$BEFORE" --tag-promotions
+          fi

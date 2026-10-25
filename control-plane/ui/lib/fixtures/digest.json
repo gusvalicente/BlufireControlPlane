@@ -1,0 +1,38 @@
+{
+ "generated_at": "2026-10-25T11:00:00Z",
+ "p1": [],
+ "p2": [
+  {
+   "title": "Critical finding on a prod image",
+   "detail": "openssl CVE-2026-1187 in Client Intake Portal, due Oct 30",
+   "app": "intake-portal",
+   "link": "/security"
+  },
+  {
+   "title": "Drift in prod",
+   "detail": "Request Portal max replicas is 10 live, 1 in git",
+   "app": "request-portal",
+   "link": "/drift"
+  },
+  {
+   "title": "Latency over threshold",
+   "detail": "AP Automation cert p95 720 ms",
+   "app": "ap-portal"
+  }
+ ],
+ "p3": [
+  {
+   "title": "2 changes waiting for approval",
+   "link": "/changes"
+  },
+  {
+   "title": "Nightly backups",
+   "detail": "3 of 3 succeeded; off-cloud copy 1 day late"
+  },
+  {
+   "title": "Cost month to date",
+   "detail": "$131.40 across 3 cost centers"
+  }
+ ],
+ "text": "No P1s in the last 24 hours. 3 P2 items need attention. 2 changes are waiting for approval."
+}

@@ -1,0 +1,15 @@
+{
+  "_comment": "Values produced by bootstrap scripts (30, 40, 60). Committed so render_params and CI are reproducible. No secrets here.",
+  "apiAudience": "api://blufire-platform-api",
+  "apiClientId": "",
+  "uiClientId": "",
+  "mcpClientId": "",
+  "adminObjectId": "",
+  "githubAppId": "",
+  "githubAppInstallationId": "",
+  "ciPrincipalIds": [],
+  "platformPrincipalId": "",
+  "macMiniPrincipalId": "",
+  "stepUpAcrs": "",
+  "availabilityTestCidrs": []
+}

@@ -1,0 +1,6 @@
+# Example client whose only app is still incubating: no subscription yet.
+id: demo-tax
+name: Example Tax (incubating example)
+tenant_id: 33333333-3333-3333-3333-333333333333
+subscription_id: null
+contacts: []

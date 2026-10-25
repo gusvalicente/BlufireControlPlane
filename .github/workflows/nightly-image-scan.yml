@@ -1,0 +1,68 @@
+# Re-scans every image digest pinned in the registry, so a CVE published after deploy still surfaces.
+# Results go to backup storage scan-results/<app>/<env>/<date>.json, where the worker ingests them:
+#   {"client", "app", "env", "scanned_at", "images": {"frontend", "backend"}, "frontend": <trivy json>, "backend": <trivy json>}
+name: nightly-image-scan
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: platform-azure
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.56.2
+      - name: Scan and upload
+        run: |
+          names="$(python tools/render_params.py --names)"
+          acr="$(jq -r .acr <<<"$names")"; sa="$(jq -r .backupStorage <<<"$names")"; rg="$(jq -r .backupResourceGroup <<<"$names")"
+          bsub="$(python -c 'import yaml; print(yaml.safe_load(open("platform.yaml"))["subscriptions"]["backup"])')"
+          export TRIVY_USERNAME=00000000-0000-0000-0000-000000000000
+          export TRIVY_PASSWORD="$(az acr login --name "$acr" --expose-token --query accessToken -o tsv)"
+
+          # The backup account denies public traffic; admit this runner for the length of the step only.
+          ip="$(curl -s https://api.ipify.org)"
+          az storage account network-rule add --account-name "$sa" --resource-group "$rg" --subscription "$bsub" --ip-address "$ip" -o none
+          trap 'az storage account network-rule remove --account-name "$sa" --resource-group "$rg" --subscription "$bsub" --ip-address "$ip" -o none' EXIT
+          sleep 30
+
+          date="$(date -u +%F)"
+          python - <<'PY' > targets.tsv
+          import glob, yaml
+          for path in sorted(glob.glob("registry/apps/*/*.yaml")):
+              app = yaml.safe_load(open(path))
+              for env, e in app["environments"].items():
+                  images = e.get("images") or {}
+                  if images.get("frontend") and images.get("backend"):
+                      print("\t".join([app["client"], app["id"], env, images["frontend"], images["backend"]]))
+          PY
+          while IFS=$'\t' read -r client app env fe be; do
+            trivy image --format json --output fe.json --no-progress "$fe" || echo '{"error":"scan failed"}' > fe.json
+            trivy image --format json --output be.json --no-progress "$be" || echo '{"error":"scan failed"}' > be.json
+            jq -n --arg client "$client" --arg app "$app" --arg env "$env" --arg fe "$fe" --arg be "$be" \
+              --arg at "$(date -u +%FT%TZ)" --slurpfile f fe.json --slurpfile b be.json \
+              '{client: $client, app: $app, env: $env, scanned_at: $at, images: {frontend: $fe, backend: $be}, frontend: $f[0], backend: $b[0]}' > result.json
+            az storage blob upload --auth-mode login --account-name "$sa" --container-name scan-results \
+              --name "$app/$env/$date.json" --file result.json --overwrite -o none
+            echo "scanned $client/$app/$env"
+          done < targets.tsv

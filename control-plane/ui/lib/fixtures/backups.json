@@ -1,0 +1,79 @@
+[
+ {
+  "id": "bkp_9001",
+  "app": "intake-portal",
+  "env": "prod",
+  "layer": "pitr",
+  "location": "psql-demo-cpa-prod (built in)",
+  "size_bytes": null,
+  "checksum": null,
+  "created_at": "2026-10-25T13:00:00Z",
+  "result": "ok"
+ },
+ {
+  "id": "bkp_9002",
+  "app": "intake-portal",
+  "env": "prod",
+  "layer": "pre_promotion",
+  "location": "stblufirebackup/pg-dumps/intake-portal/prod/v1.8.2.dump",
+  "size_bytes": 190840832,
+  "checksum": "sha256:7dc96f776c8423e5",
+  "created_at": "2026-10-21T21:12:00Z",
+  "result": "ok"
+ },
+ {
+  "id": "bkp_9003",
+  "app": "intake-portal",
+  "env": "prod",
+  "layer": "nightly",
+  "location": "stblufirebackup/pg-dumps/intake-portal/prod/2026-10-25.dump",
+  "size_bytes": 191102976,
+  "checksum": "sha256:4814d92093ac8a0f",
+  "created_at": "2026-10-25T06:04:00Z",
+  "result": "ok"
+ },
+ {
+  "id": "bkp_9004",
+  "app": "intake-portal",
+  "env": "prod",
+  "layer": "off_cloud",
+  "location": "M2 Mac Mini /Volumes/Backup/blufire/intake-portal/prod",
+  "size_bytes": 190998528,
+  "checksum": "sha256:76a8277347f52530",
+  "created_at": "2026-10-24T06:31:00Z",
+  "result": "ok"
+ },
+ {
+  "id": "bkp_9005",
+  "app": "ap-portal",
+  "env": "prod",
+  "layer": "pitr",
+  "location": "psql-sandbox-shared (built in)",
+  "size_bytes": null,
+  "checksum": null,
+  "created_at": "2026-10-25T13:00:00Z",
+  "result": "ok"
+ },
+ {
+  "id": "bkp_9006",
+  "app": "request-portal",
+  "env": "prod",
+  "layer": "pitr",
+  "location": "psql-sandbox-shared (built in)",
+  "size_bytes": null,
+  "checksum": null,
+  "created_at": "2026-10-25T13:00:00Z",
+  "result": "ok"
+ },
+ {
+  "id": "bkp_9007",
+  "app": "intake-portal",
+  "env": "prod",
+  "layer": "manual",
+  "location": "stblufirebackup/pg-dumps/intake-portal/prod/manual-2026-10-22.dump",
+  "size_bytes": 190500000,
+  "checksum": "sha256:5e0c1a2b3c4d5e6f",
+  "created_at": "2026-10-22T15:20:00Z",
+  "result": "ok"
+ }
+]

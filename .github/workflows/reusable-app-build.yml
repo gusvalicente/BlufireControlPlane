@@ -1,0 +1,121 @@
+# Reusable build for client app repos (frontend/ + backend/). On pull requests: lint, test, build, scan.
+# On main: also push both images and commit the dev image bump into the platform registry (low risk, direct).
+#
+# Caller (.github/workflows/build.yml in the app repo):
+#   on: { push: { branches: [main] }, pull_request: {} }
+#   permissions: { contents: read, id-token: write }
+#   jobs:
+#     build:
+#       uses: <org>/blufire-platform/.github/workflows/reusable-app-build.yml@main
+#       with:
+#         client: demo-cpa
+#         app: intake-portal
+#         platform_repo: <org>/blufire-platform
+#         acr_name: ${{ vars.ACR_NAME }}
+#         azure_client_id: ${{ vars.AZURE_BUILDS_CLIENT_ID }}
+#         azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+#         azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+#       secrets: inherit
+name: reusable-app-build
+
+on:
+  workflow_call:
+    inputs:
+      client: { type: string, required: true }
+      app: { type: string, required: true }
+      platform_repo: { type: string, required: true }
+      acr_name: { type: string, required: true }
+      azure_client_id: { type: string, required: true }
+      azure_tenant_id: { type: string, required: true }
+      azure_subscription_id: { type: string, required: true }
+      python_version: { type: string, default: "3.12" }
+      node_version: { type: string, default: "22" }
+    secrets:
+      PLATFORM_APP_ID: { required: true }
+      PLATFORM_APP_PRIVATE_KEY: { required: true }
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      FE: ${{ inputs.acr_name }}.azurecr.io/${{ inputs.client }}/${{ inputs.app }}-frontend
+      BE: ${{ inputs.acr_name }}.azurecr.io/${{ inputs.client }}/${{ inputs.app }}-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Backend lint and tests
+        working-directory: backend
+        run: |
+          pip install -e ".[dev]"
+          ruff check .
+          pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+      - name: Frontend lint and tests
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm test --if-present
+      - name: Build images
+        run: |
+          docker build -t "$FE:${GITHUB_SHA::7}" frontend
+          docker build -t "$BE:${GITHUB_SHA::7}" backend
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.56.2
+      - name: Scan images (fails on fixable critical or high)
+        run: |
+          for ref in "$FE:${GITHUB_SHA::7}" "$BE:${GITHUB_SHA::7}"; do
+            trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --no-progress "$ref"
+          done
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ inputs.azure_client_id }}
+          tenant-id: ${{ inputs.azure_tenant_id }}
+          subscription-id: ${{ inputs.azure_subscription_id }}
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        name: Push images
+        id: push
+        run: |
+          az acr login --name "${{ inputs.acr_name }}"
+          docker push "$FE:${GITHUB_SHA::7}" >/dev/null
+          docker push "$BE:${GITHUB_SHA::7}" >/dev/null
+          echo "frontend=$(docker inspect --format '{{index .RepoDigests 0}}' "$FE:${GITHUB_SHA::7}")" >> "$GITHUB_OUTPUT"
+          echo "backend=$(docker inspect --format '{{index .RepoDigests 0}}' "$BE:${GITHUB_SHA::7}")" >> "$GITHUB_OUTPUT"
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/create-github-app-token@v1
+        id: token
+        with:
+          app-id: ${{ secrets.PLATFORM_APP_ID }}
+          private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.platform_repo }}
+          token: ${{ steps.token.outputs.token }}
+          path: platform
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        name: Commit dev image bump to the platform registry
+        working-directory: platform
+        env:
+          FRONTEND: ${{ steps.push.outputs.frontend }}
+          BACKEND: ${{ steps.push.outputs.backend }}
+          FILE: registry/apps/${{ inputs.client }}/${{ inputs.app }}.yaml
+          SOURCE: ${{ github.repository }}
+        run: |
+          export RELEASE="${GITHUB_SHA::7}"
+          yq -i '.environments.dev.images.frontend = strenv(FRONTEND) | .environments.dev.images.backend = strenv(BACKEND) | .environments.dev.release = strenv(RELEASE)' "$FILE"
+          git config user.name "blufire-builds"
+          git config user.email "builds@users.noreply.github.com"
+          git add "$FILE"
+          git commit -m "deploy(dev): ${{ inputs.client }}/${{ inputs.app }} $RELEASE" -m "Built from $SOURCE@$GITHUB_SHA"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done

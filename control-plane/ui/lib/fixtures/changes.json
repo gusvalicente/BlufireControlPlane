@@ -1,0 +1,94 @@
+[
+ {
+  "id": "chg_042",
+  "title": "Enable origin restriction",
+  "reason": "Client VPN ranges confirmed by Jane Admin",
+  "file": "registry/apps/demo-cpa/intake-portal.yaml",
+  "actor": {
+   "kind": "admin",
+   "oid": "9e8d7c6b-1111-2222-3333-444455556666",
+   "name": "Gus"
+  },
+  "risk": "approval",
+  "matched_rules": [
+   "environments.prod",
+   "environments.*.origins"
+  ],
+  "status": "pending",
+  "diff": "--- a/registry/apps/demo-cpa/intake-portal.yaml\n+++ b/registry/apps/demo-cpa/intake-portal.yaml\n@@ -31,3 +31,7 @@\n   prod:\n     scale: {min: 1, max: 3}\n-    origins: {enabled: false, cidrs: []}\n+    origins:\n+      enabled: true\n+      cidrs:\n+        - {cidr: 203.0.113.0/24, label: Example CPA VPN}\n+        - {cidr: 198.51.100.40/29, label: Branch office}\n",
+  "commit_sha": null,
+  "pr_number": 42,
+  "pr_url": "https://github.com/blufire-analytics/blufire-platform/pull/42",
+  "created_at": "2026-10-25T13:35:00Z",
+  "decided_at": null,
+  "decided_by": null
+ },
+ {
+  "id": "chg_041",
+  "title": "Upgrade fastapi 0.115 to 0.118",
+  "reason": "Fixes high finding in python-multipart",
+  "file": "registry/apps/demo-tax/ap-portal.yaml",
+  "actor": {
+   "kind": "agent",
+   "oid": "mcp-agent",
+   "name": "Claude via MCP"
+  },
+  "risk": "approval",
+  "matched_rules": [
+   "actor:agent",
+   "environments.cert.images"
+  ],
+  "status": "pending",
+  "diff": "--- a/registry/apps/demo-tax/ap-portal.yaml\n+++ b/registry/apps/demo-tax/ap-portal.yaml\n@@ -24,4 +24,4 @@\n   cert:\n     images:\n-      backend: acrblufireplatform.azurecr.io/ap-portal-backend@sha256:4b1f09c2\n+      backend: acrblufireplatform.azurecr.io/ap-portal-backend@sha256:9a7e33d0\n     release: v2.3.0\n",
+  "commit_sha": null,
+  "pr_number": 41,
+  "pr_url": "https://github.com/blufire-analytics/blufire-platform/pull/41",
+  "created_at": "2026-10-25T11:02:00Z",
+  "decided_at": null,
+  "decided_by": null
+ },
+ {
+  "id": "chg_040",
+  "title": "Raise dev latency threshold",
+  "reason": null,
+  "file": "registry/apps/demo-cpa/intake-portal.yaml",
+  "actor": {
+   "kind": "admin",
+   "oid": "9e8d7c6b-1111-2222-3333-444455556666",
+   "name": "Gus"
+  },
+  "risk": "low",
+  "matched_rules": [],
+  "status": "applied",
+  "diff": "--- a/registry/apps/demo-cpa/intake-portal.yaml\n+++ b/registry/apps/demo-cpa/intake-portal.yaml\n@@ -48,2 +48,2 @@\n alerts:\n-  latency_p95_ms: 1200\n+  latency_p95_ms: 1500\n",
+  "commit_sha": "3f9a2c1",
+  "pr_number": null,
+  "pr_url": null,
+  "created_at": "2026-10-23T18:10:00Z",
+  "decided_at": "2026-10-23T18:10:00Z",
+  "decided_by": "Gus"
+ },
+ {
+  "id": "chg_039",
+  "title": "Max replicas to 10 in prod",
+  "reason": "Load test",
+  "file": "registry/apps/example-advisors/request-portal.yaml",
+  "actor": {
+   "kind": "admin",
+   "oid": "9e8d7c6b-1111-2222-3333-444455556666",
+   "name": "Gus"
+  },
+  "risk": "approval",
+  "matched_rules": [
+   "environments.prod"
+  ],
+  "status": "rejected",
+  "diff": "--- a/registry/apps/example-advisors/request-portal.yaml\n+++ b/registry/apps/example-advisors/request-portal.yaml\n@@ -30,2 +30,2 @@\n   prod:\n-    scale: {min: 0, max: 1}\n+    scale: {min: 0, max: 10}\n",
+  "commit_sha": null,
+  "pr_number": 39,
+  "pr_url": "https://github.com/blufire-analytics/blufire-platform/pull/39",
+  "created_at": "2026-10-20T14:00:00Z",
+  "decided_at": "2026-10-20T14:30:00Z",
+  "decided_by": "Gus"
+ }
+]

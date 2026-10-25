@@ -1,0 +1,76 @@
+# Builds, scans and pushes the control plane images, then pins their digests in infra/platform-images.json.
+# That commit triggers apply.yml, which rolls the platform apps and jobs forward.
+name: control-plane-images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - control-plane/**
+  workflow_dispatch:
+
+concurrency:
+  group: control-plane-images
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.56.2
+      - name: Build, scan, push
+        id: images
+        run: |
+          acr="$(python tools/render_params.py --names | jq -r .acr)"
+          az acr login --name "$acr"
+          tag="${GITHUB_SHA::7}"
+          build() { # key image dockerfile context
+            ref="$acr.azurecr.io/$2:$tag"
+            docker build -t "$ref" -f "$3" "$4"
+            trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --no-progress "$ref"
+            docker push "$ref" >/dev/null
+            echo "$1=$(docker inspect --format '{{index .RepoDigests 0}}' "$ref")" >> "$GITHUB_OUTPUT"
+          }
+          build controlPlane blufire-control-plane control-plane/Dockerfile control-plane
+          build ui blufire-ui control-plane/ui/Dockerfile control-plane/ui
+          build dbops blufire-dbops control-plane/dbops/Dockerfile control-plane/dbops
+      - uses: actions/create-github-app-token@v1
+        id: token
+        with:
+          app-id: ${{ secrets.PLATFORM_APP_ID }}
+          private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
+      - name: Pin digests
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+          CP: ${{ steps.images.outputs.controlPlane }}
+          UI: ${{ steps.images.outputs.ui }}
+          DB: ${{ steps.images.outputs.dbops }}
+        run: |
+          python - <<'PY'
+          import json, os
+          path = "infra/platform-images.json"
+          data = json.load(open(path))
+          data.update(controlPlane=os.environ["CP"], ui=os.environ["UI"], dbops=os.environ["DB"])
+          open(path, "w").write(json.dumps(data, indent=2) + "\n")
+          PY
+          git config user.name "blufire-images"
+          git config user.email "images@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add infra/platform-images.json
+          git commit -m "deploy(platform): control plane images ${GITHUB_SHA::7}"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done

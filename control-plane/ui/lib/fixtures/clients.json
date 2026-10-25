@@ -1,0 +1,49 @@
+[
+ {
+  "id": "demo-cpa",
+  "name": "Example CPA",
+  "tenant_id": "11111111-1111-1111-1111-111111111111",
+  "subscription_id": "22222222-2222-2222-2222-222222222222",
+  "contacts": [
+   {
+    "name": "Jane Admin",
+    "role": "Microsoft 365 admin",
+    "email": "it@example.com"
+   }
+  ],
+  "postgres": {
+   "prod_sku": "Standard_B2s",
+   "nonprod_sku": "Standard_B1ms",
+   "prod_high_availability": false
+  },
+  "apps": [
+   "intake-portal"
+  ]
+ },
+ {
+  "id": "demo-tax",
+  "name": "Example Tax",
+  "tenant_id": "33333333-3333-3333-3333-333333333333",
+  "subscription_id": null,
+  "contacts": [],
+  "apps": [
+   "ap-portal"
+  ]
+ },
+ {
+  "id": "example-advisors",
+  "name": "Example Advisors",
+  "tenant_id": "44444444-4444-4444-4444-444444444444",
+  "subscription_id": null,
+  "contacts": [
+   {
+    "name": "Sam Ops",
+    "role": "Operations lead",
+    "email": "ops@example.org"
+   }
+  ],
+  "apps": [
+   "request-portal"
+  ]
+ }
+]

@@ -1,0 +1,473 @@
+[
+ {
+  "registry": {
+   "id": "intake-portal",
+   "client": "demo-cpa",
+   "name": "Client Intake Portal",
+   "repo": "blufire-analytics/demo-cpa-intake-portal",
+   "stage": "graduated",
+   "client_data": true,
+   "stack": {
+    "frontend": "nextjs",
+    "backend": "fastapi",
+    "runtime_eol": {
+     "python": "2028-10-31",
+     "node": "2027-04-30"
+    }
+   },
+   "auth": {
+    "entra_app_id": "5f1c2a9e-0d4b-4b8e-9d0a-1c2e3f4a5b6c",
+    "allowed_tenants": [
+     "11111111-1111-1111-1111-111111111111"
+    ],
+    "consent_granted": true
+   },
+   "environments": {
+    "dev": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/intake-portal-frontend@sha256:80bfd2f0ea4804fd39f41e42339270970d88ee269e1a5f336713d602424f2b9a",
+      "backend": "acrblufireplatform.azurecr.io/intake-portal-backend@sha256:ee4f741d991db3ade72596e00acf0ac8ebcd62bf1f1f2114b7052f2c7413f31e"
+     },
+     "release": "v1.9.0-rc.1",
+     "scale": {
+      "min": 0,
+      "max": 2
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    },
+    "cert": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/intake-portal-frontend@sha256:80bfd2f0ea4804fd39f41e42339270970d88ee269e1a5f336713d602424f2b9a",
+      "backend": "acrblufireplatform.azurecr.io/intake-portal-backend@sha256:ee4f741d991db3ade72596e00acf0ac8ebcd62bf1f1f2114b7052f2c7413f31e"
+     },
+     "release": "v1.9.0-rc.1",
+     "scale": {
+      "min": 0,
+      "max": 2
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    },
+    "prod": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/intake-portal-frontend@sha256:7b33e24170ceee18365b254b11e3b8ebed47e74c89625d91ab112a0452306ac8",
+      "backend": "acrblufireplatform.azurecr.io/intake-portal-backend@sha256:9fd5c2816a6534d44ce814965f163d347ef89ead58d37671d0a7165ab67f28b2"
+     },
+     "release": "v1.8.2",
+     "scale": {
+      "min": 1,
+      "max": 3
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "warning",
+      "FEATURE_BULK_UPLOAD": "false"
+     },
+     "secrets": [
+      "smtp-password",
+      "cch-integrator-key",
+      "session-signing-key"
+     ]
+    }
+   },
+   "alerts": {
+    "latency_p95_ms": 1500,
+    "error_rate_pct": 2
+   },
+   "backup": {
+    "nightly_utc": "06:00",
+    "pitr_retention_days": 35
+   }
+  },
+  "path": "registry/apps/demo-cpa/intake-portal.yaml",
+  "summary": {
+   "id": "intake-portal",
+   "client": "demo-cpa",
+   "client_name": "Example CPA",
+   "name": "Client Intake Portal",
+   "stage": "graduated",
+   "client_data": true,
+   "envs": [
+    {
+     "env": "dev",
+     "health": "healthy",
+     "summary": "Healthy",
+     "release": "v1.9.0-rc.1",
+     "p95_ms": 380,
+     "error_rate_pct": 0.0,
+     "replicas": {
+      "current": 1,
+      "max": 2
+     }
+    },
+    {
+     "env": "cert",
+     "health": "healthy",
+     "summary": "Healthy",
+     "release": "v1.9.0-rc.1",
+     "p95_ms": 402,
+     "error_rate_pct": 0.2,
+     "replicas": {
+      "current": 1,
+      "max": 2
+     }
+    },
+    {
+     "env": "prod",
+     "health": "healthy",
+     "summary": "Up 99.98%",
+     "release": "v1.8.2",
+     "p95_ms": 412,
+     "error_rate_pct": 0.1,
+     "replicas": {
+      "current": 1,
+      "max": 3
+     }
+    }
+   ],
+   "badges": [
+    {
+     "kind": "critical_finding",
+     "count": 1
+    }
+   ]
+  },
+  "approval_fields": [
+   "repo",
+   "stage",
+   "client_data",
+   "auth",
+   "environments.prod",
+   "environments.cert.images",
+   "environments.*.origins",
+   "environments.*.secrets"
+  ],
+  "admin_static_ip": "192.0.2.17/32"
+ },
+ {
+  "registry": {
+   "id": "ap-portal",
+   "client": "demo-tax",
+   "name": "AP Automation",
+   "repo": "blufire-analytics/demo-tax-ap-portal",
+   "stage": "incubating",
+   "client_data": false,
+   "stack": {
+    "frontend": "nextjs",
+    "backend": "fastapi",
+    "runtime_eol": {
+     "python": "2028-10-31",
+     "node": "2026-04-30"
+    }
+   },
+   "auth": {
+    "entra_app_id": null,
+    "allowed_tenants": [
+     "33333333-3333-3333-3333-333333333333"
+    ],
+    "consent_granted": false
+   },
+   "environments": {
+    "dev": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/ap-portal-frontend@sha256:11a52baaa1071201270ad57b75255d18ab0e58f3f0a84f716fedc825ce9033e2",
+      "backend": "acrblufireplatform.azurecr.io/ap-portal-backend@sha256:c8cd355421bdc64d84dfc569a377c557993020c298f3b78faf96cc1286e27fcc"
+     },
+     "release": "v2.3.0",
+     "scale": {
+      "min": 0,
+      "max": 1
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    },
+    "cert": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/ap-portal-frontend@sha256:11a52baaa1071201270ad57b75255d18ab0e58f3f0a84f716fedc825ce9033e2",
+      "backend": "acrblufireplatform.azurecr.io/ap-portal-backend@sha256:c8cd355421bdc64d84dfc569a377c557993020c298f3b78faf96cc1286e27fcc"
+     },
+     "release": "v2.3.0",
+     "scale": {
+      "min": 0,
+      "max": 1
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    },
+    "prod": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/ap-portal-frontend@sha256:32c9d5a1e06e6cf9fbc38f6f8752a333065fbc38f87d06de8baaaa8339c6a978",
+      "backend": "acrblufireplatform.azurecr.io/ap-portal-backend@sha256:f60e60791c34078c1729576ee3edfca94e1933199bfba6ef9037e3c189466094"
+     },
+     "release": "v2.2.4",
+     "scale": {
+      "min": 0,
+      "max": 1
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    }
+   },
+   "alerts": {
+    "latency_p95_ms": 2000,
+    "error_rate_pct": 5
+   },
+   "backup": {
+    "pitr_retention_days": 7
+   }
+  },
+  "path": "registry/apps/demo-tax/ap-portal.yaml",
+  "summary": {
+   "id": "ap-portal",
+   "client": "demo-tax",
+   "client_name": "Example Tax",
+   "name": "AP Automation",
+   "stage": "incubating",
+   "client_data": false,
+   "envs": [
+    {
+     "env": "dev",
+     "health": "healthy",
+     "summary": "Healthy",
+     "release": "v2.3.0",
+     "p95_ms": 610,
+     "error_rate_pct": 0.4,
+     "replicas": {
+      "current": 1,
+      "max": 1
+     }
+    },
+    {
+     "env": "cert",
+     "health": "degraded",
+     "summary": "E2E pending",
+     "release": "v2.3.0",
+     "p95_ms": 720,
+     "error_rate_pct": 1.1,
+     "replicas": {
+      "current": 1,
+      "max": 1
+     }
+    },
+    {
+     "env": "prod",
+     "health": "healthy",
+     "summary": "Up 100%",
+     "release": "v2.2.4",
+     "p95_ms": 690,
+     "error_rate_pct": 0.0,
+     "replicas": {
+      "current": 1,
+      "max": 1
+     }
+    }
+   ],
+   "badges": [
+    {
+     "kind": "approval",
+     "count": 1
+    }
+   ]
+  },
+  "approval_fields": [
+   "repo",
+   "stage",
+   "client_data",
+   "auth",
+   "environments.prod",
+   "environments.cert.images",
+   "environments.*.origins",
+   "environments.*.secrets"
+  ],
+  "admin_static_ip": "192.0.2.17/32"
+ },
+ {
+  "registry": {
+   "id": "request-portal",
+   "client": "example-advisors",
+   "name": "Request Portal",
+   "repo": "blufire-analytics/example-advisors-request-portal",
+   "stage": "incubating",
+   "client_data": true,
+   "stack": {
+    "frontend": "nextjs",
+    "backend": "fastapi"
+   },
+   "auth": {
+    "entra_app_id": null,
+    "allowed_tenants": [
+     "44444444-4444-4444-4444-444444444444"
+    ],
+    "consent_granted": false
+   },
+   "environments": {
+    "dev": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/request-portal-frontend@sha256:f046709b0590a845a67aac7850e94f6b397c6ca2251aa1fc8a02b2e36d730711",
+      "backend": "acrblufireplatform.azurecr.io/request-portal-backend@sha256:07178cff8d9588bf13748807fbdf43ce1fc5e9aeb3b97dc9b5f12b59b8d8c50e"
+     },
+     "release": "v1.2.5",
+     "scale": {
+      "min": 0,
+      "max": 1
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    },
+    "cert": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/request-portal-frontend@sha256:f046709b0590a845a67aac7850e94f6b397c6ca2251aa1fc8a02b2e36d730711",
+      "backend": "acrblufireplatform.azurecr.io/request-portal-backend@sha256:07178cff8d9588bf13748807fbdf43ce1fc5e9aeb3b97dc9b5f12b59b8d8c50e"
+     },
+     "release": "v1.2.5",
+     "scale": {
+      "min": 0,
+      "max": 1
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    },
+    "prod": {
+     "images": {
+      "frontend": "acrblufireplatform.azurecr.io/request-portal-frontend@sha256:f046709b0590a845a67aac7850e94f6b397c6ca2251aa1fc8a02b2e36d730711",
+      "backend": "acrblufireplatform.azurecr.io/request-portal-backend@sha256:07178cff8d9588bf13748807fbdf43ce1fc5e9aeb3b97dc9b5f12b59b8d8c50e"
+     },
+     "release": "v1.2.5",
+     "scale": {
+      "min": 0,
+      "max": 1
+     },
+     "origins": {
+      "enabled": false,
+      "cidrs": []
+     },
+     "env_vars": {
+      "LOG_LEVEL": "info"
+     },
+     "secrets": []
+    }
+   },
+   "alerts": {
+    "latency_p95_ms": 1500,
+    "error_rate_pct": 2
+   },
+   "backup": {
+    "pitr_retention_days": 7
+   }
+  },
+  "path": "registry/apps/example-advisors/request-portal.yaml",
+  "summary": {
+   "id": "request-portal",
+   "client": "example-advisors",
+   "client_name": "Example Advisors",
+   "name": "Request Portal",
+   "stage": "incubating",
+   "client_data": true,
+   "envs": [
+    {
+     "env": "dev",
+     "health": "scaled_to_zero",
+     "summary": "Scaled to 0",
+     "release": "v1.2.5",
+     "p95_ms": null,
+     "error_rate_pct": null,
+     "replicas": {
+      "current": 0,
+      "max": 1
+     }
+    },
+    {
+     "env": "cert",
+     "health": "healthy",
+     "summary": "Healthy",
+     "release": "v1.2.5",
+     "p95_ms": 270,
+     "error_rate_pct": 0.0,
+     "replicas": {
+      "current": 1,
+      "max": 1
+     }
+    },
+    {
+     "env": "prod",
+     "health": "healthy",
+     "summary": "Up 99.95%",
+     "release": "v1.2.5",
+     "p95_ms": 288,
+     "error_rate_pct": 0.0,
+     "replicas": {
+      "current": 1,
+      "max": 1
+     }
+    }
+   ],
+   "badges": [
+    {
+     "kind": "drift",
+     "count": 1
+    },
+    {
+     "kind": "client_data_in_sandbox",
+     "count": 1
+    }
+   ]
+  },
+  "approval_fields": [
+   "repo",
+   "stage",
+   "client_data",
+   "auth",
+   "environments.prod",
+   "environments.cert.images",
+   "environments.*.origins",
+   "environments.*.secrets"
+  ],
+  "admin_static_ip": "192.0.2.17/32"
+ }
+]

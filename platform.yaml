@@ -1,0 +1,44 @@
+# Global platform settings. Every value marked REPLACE must be set before Phase 0.
+# This file is desired state: change it through a reviewed PR (it is classified high risk).
+
+tenant_id: 00000000-0000-0000-0000-000000000000        # REPLACE: BluFire Entra tenant ID
+region: eastus2                                         # Primary region (open item: confirm)
+management_group: mg-blufire
+
+subscriptions:
+  platform: 00000000-0000-0000-0000-000000000001        # REPLACE: sub-blufire-platform
+  backup: 00000000-0000-0000-0000-000000000002          # REPLACE: sub-blufire-backup
+  sandbox: 00000000-0000-0000-0000-000000000003         # REPLACE: sub-blufire-sandbox
+
+github:
+  org: REPLACE-github-org
+  platform_repo: blufire-platform
+
+network:
+  admin_static_ip: 192.0.2.17/32                        # REPLACE: UniFi WAN static IP (always allowed)
+  # Anthropic's published outbound range for Claude connectors (claude.com/docs/connectors/building/authentication).
+  mcp_client_cidrs:
+    - 160.79.104.0/21
+
+# Custom domains on a domain verified in the BluFire Entra tenant. Required: Entra only accepts the MCP URL as an
+# Application ID URI on a verified domain, and Claude connectors require that match.
+domains:
+  admin_ui: ops.REPLACE-domain.com
+  mcp: mcp.REPLACE-domain.com
+
+alerts:
+  email: REPLACE@example.com
+  sms_country_code: "1"
+  sms_number: "0000000000"                              # REPLACE
+  azure_app_push_email: REPLACE@example.com              # Account signed into the Azure mobile app
+
+digest:
+  send_local_time: "07:00"
+  timezone: America/New_York
+
+postgres:
+  entra_admin_group_object_id: 00000000-0000-0000-0000-000000000004   # REPLACE: Entra group "pg-admins"
+  sandbox_sku: Standard_B2s
+  default_prod_sku: Standard_B2s
+  default_nonprod_sku: Standard_B1ms
+  storage_gb: 32

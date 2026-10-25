@@ -1,0 +1,35 @@
+[
+ {
+  "id": "inc_020",
+  "source": "app_insights",
+  "severity": "p2",
+  "title": "p95 latency over threshold on ap-portal cert",
+  "status": "open",
+  "opened_at": "2026-10-25T09:12:00Z",
+  "closed_at": null,
+  "note": null,
+  "link": null
+ },
+ {
+  "id": "inc_019",
+  "source": "heartbeat",
+  "severity": "p1",
+  "title": "Off-cloud backup copy late",
+  "status": "closed",
+  "opened_at": "2026-10-24T08:00:00Z",
+  "closed_at": "2026-10-24T09:30:00Z",
+  "note": "Mac Mini drive was unmounted after a reboot",
+  "link": null
+ },
+ {
+  "id": "inc_018",
+  "source": "sentinel",
+  "severity": "p2",
+  "title": "Ingress rule changed by a non-CI identity",
+  "status": "closed",
+  "opened_at": "2026-10-24T18:53:00Z",
+  "closed_at": "2026-10-24T19:20:00Z",
+  "note": "Gus changed max replicas in the portal; tracked as drift",
+  "link": null
+ }
+]

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blufire.local/schema/app.schema.json",
+  "title": "BluFire client app",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "client", "name", "repo", "stage", "client_data", "auth", "environments"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,18}[a-z0-9]$", "description": "2 to 20 characters, unique across all clients"},
+    "client": {"type": "string", "description": "Client id; must match a file in registry/clients"},
+    "name": {"type": "string", "minLength": 1},
+    "repo": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "stage": {"enum": ["incubating", "graduated"], "description": "incubating = sandbox subscription and shared Postgres; graduated = client subscription"},
+    "client_data": {"type": "boolean", "description": "True when the app holds real client data. The UI warns if true while incubating."},
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "frontend": {"const": "nextjs"},
+        "backend": {"const": "fastapi"},
+        "runtime_eol": {
+          "type": "object",
+          "additionalProperties": {"type": "string", "format": "date"},
+          "description": "Runtime end-of-life dates entered by Gus; flagged 90 days ahead"
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_tenants"],
+      "properties": {
+        "entra_app_id": {"type": ["string", "null"], "format": "uuid"},
+        "allowed_tenants": {"type": "array", "items": {"type": "string", "format": "uuid"}, "minItems": 1},
+        "consent_granted": {"type": "boolean", "default": false}
+      }
+    },
+    "environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev", "cert", "prod"],
+      "properties": {
+        "dev": {"$ref": "#/$defs/environment"},
+        "cert": {"$ref": "#/$defs/environment"},
+        "prod": {"$ref": "#/$defs/environment"}
+      }
+    },
+    "alerts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "latency_p95_ms": {"type": "integer", "minimum": 100},
+        "error_rate_pct": {"type": "number", "minimum": 0, "maximum": 100}
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nightly_utc": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"},
+        "pitr_retention_days": {"type": "integer", "minimum": 7, "maximum": 35}
+      }
+    }
+  },
+  "$defs": {
+    "image": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9.-]+/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$",
+      "description": "Pinned by digest. null = not deployed yet."
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scale", "origins"],
+      "properties": {
+        "images": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frontend": {"$ref": "#/$defs/image"},
+            "backend": {"$ref": "#/$defs/image"}
+          }
+        },
+        "release": {"type": ["string", "null"], "description": "Release tag, for display"},
+        "scale": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": {"type": "integer", "minimum": 0, "maximum": 10},
+            "max": {"type": "integer", "minimum": 1, "maximum": 10}
+          }
+        },
+        "origins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "cidrs"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "cidrs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["cidr", "label"],
+                "properties": {
+                  "cidr": {"type": "string", "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$"},
+                  "label": {"type": "string", "minLength": 1, "maxLength": 60}
+                }
+              }
+            }
+          }
+        },
+        "env_vars": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "description": "Non-secret environment variables only"
+        },
+        "secrets": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[a-z0-9-]{1,127}$"},
+          "description": "Key Vault secret names referenced by the app; values never stored here"
+        }
+      }
+    }
+  }
+}

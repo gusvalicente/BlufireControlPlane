@@ -1,0 +1,6 @@
+{
+  "_comment": "Control plane image digests. Written by .github/workflows/control-plane-images.yml; empty = not built yet.",
+  "controlPlane": "",
+  "ui": "",
+  "dbops": ""
+}

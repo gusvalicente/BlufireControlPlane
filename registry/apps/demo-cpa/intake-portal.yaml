@@ -1,0 +1,44 @@
+id: intake-portal
+client: demo-cpa
+name: Client Intake Portal
+repo: REPLACE-github-org/demo-cpa-intake-portal
+stage: graduated
+client_data: true
+stack:
+  frontend: nextjs
+  backend: fastapi
+  runtime_eol:
+    python: "2028-10-31"
+    node: "2027-04-30"
+auth:
+  entra_app_id: null
+  allowed_tenants: [11111111-1111-1111-1111-111111111111]
+  consent_granted: false
+environments:
+  dev:
+    images: {frontend: null, backend: null}
+    release: null
+    scale: {min: 0, max: 2}
+    origins: {enabled: false, cidrs: []}
+    env_vars: {LOG_LEVEL: info}
+    secrets: []
+  cert:
+    images: {frontend: null, backend: null}
+    release: null
+    scale: {min: 0, max: 2}
+    origins: {enabled: false, cidrs: []}
+    env_vars: {LOG_LEVEL: info}
+    secrets: []
+  prod:
+    images: {frontend: null, backend: null}
+    release: null
+    scale: {min: 1, max: 3}
+    origins: {enabled: false, cidrs: []}
+    env_vars: {LOG_LEVEL: warning}
+    secrets: []
+alerts:
+  latency_p95_ms: 1500
+  error_rate_pct: 2
+backup:
+  nightly_utc: "06:00"
+  pitr_retention_days: 35

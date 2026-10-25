@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+build/
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env
+.env*.local
+control-plane/ui/screenshots/
+infra/**/*.json.tmp
+.DS_Store

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blufire.local/schema/client.schema.json",
+  "title": "BluFire client",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "tenant_id"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,8}[a-z0-9]$", "description": "2 to 10 characters, used in resource names (Azure name limits)"},
+    "name": {"type": "string", "minLength": 1},
+    "tenant_id": {"type": "string", "format": "uuid", "description": "Client's Entra tenant ID; staff sign in with it"},
+    "subscription_id": {"type": ["string", "null"], "format": "uuid", "description": "sub-<client>; null until the client's first app graduates"},
+    "contacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "role"],
+        "properties": {
+          "name": {"type": "string"},
+          "role": {"type": "string"},
+          "email": {"type": "string"}
+        }
+      },
+      "default": []
+    },
+    "postgres": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prod_sku": {"enum": ["Standard_B1ms", "Standard_B2s", "Standard_B2ms", "Standard_D2ds_v5", "Standard_D4ds_v5"]},
+        "nonprod_sku": {"enum": ["Standard_B1ms", "Standard_B2s"]},
+        "prod_high_availability": {"type": "boolean", "default": false, "description": "Zone-redundant HA; General Purpose SKUs only"}
+      }
+    },
+    "notes": {"type": "string"}
+  }
+}
